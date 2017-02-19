@@ -23,13 +23,13 @@ namespace Serverless.Worker.Managers
 
         public QueueClient ExecutionQueueClient { get; set; }
 
+        public int AvailableMemory { get; set; }
+
         private CancellationTokenSource CancellationTokenSource { get; set; }
 
         private HashSet<Task> ExecutionTasks { get; set; }
 
         private ConcurrentDictionary<string, Deployment> Deployments { get; set; }
-
-        private int AvailableMemory { get; set; }
 
         private Task ManagementTask { get; set; }
 

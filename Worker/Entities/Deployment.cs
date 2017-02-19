@@ -85,18 +85,27 @@ namespace Serverless.Worker.Entities
             while (!cancellationToken.IsCancellationRequested)
             {
                 var lastExecutionTime = DateTime.UtcNow;
-                foreach (var instance in this.Containers.Values)
+                foreach (var container in this.Containers.Values)
                 {
-                    if (DateTime.UtcNow - instance.LastExecutionTime >= TimeSpan.FromMinutes(ConfigurationProvider.InstanceCacheMinutes))
+                    if (DateTime.UtcNow - container.LastExecutionTime >= TimeSpan.FromMinutes(ConfigurationProvider.InstanceCacheMinutes))
                     {
+                        await this.Watchdogs[container]
+                            .CancelAsync()
+                            .ConfigureAwait(continueOnCapturedContext: false);
+
+                        lock (this.ExecutionManager)
+                        {
+                            this.ExecutionManager.AvailableMemory += this.Function.MemorySize;
+                        }
+
                         Container removedInstance;
                         this.Containers.TryRemove(
-                            key: instance.Id,
+                            key: container.Id,
                             value: out removedInstance);
                     }
-                    else if (instance.LastExecutionTime < lastExecutionTime)
+                    else if (container.LastExecutionTime < lastExecutionTime)
                     {
-                        lastExecutionTime = instance.LastExecutionTime;
+                        lastExecutionTime = container.LastExecutionTime;
                     }
                 }
 
@@ -168,7 +177,15 @@ namespace Serverless.Worker.Entities
 
             this.Watchdogs.GetOrAdd(
                 key: container,
-                valueFactory: key => new DeploymentWatchdog(deployment: this));
+                valueFactory: key =>
+                {
+                    lock (this.ExecutionManager)
+                    {
+                        this.ExecutionManager.AvailableMemory -= this.Function.MemorySize;
+                    }
+
+                    return new DeploymentWatchdog(deployment: this);
+                });
 
             return response;
         }

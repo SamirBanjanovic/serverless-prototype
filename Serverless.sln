@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessWorker", "Worker\ServerlessWorker.csproj", "{7D7EFD00-F421-4633-AEA2-D7223FF01FF7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessWeb", "Web\ServerlessWeb.csproj", "{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7D7EFD00-F421-4633-AEA2-D7223FF01FF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D7EFD00-F421-4633-AEA2-D7223FF01FF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D7EFD00-F421-4633-AEA2-D7223FF01FF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D7EFD00-F421-4633-AEA2-D7223FF01FF7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

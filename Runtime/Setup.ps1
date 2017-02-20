@@ -6,6 +6,11 @@
     Restart-Computer -Wait -Force
 }
 
+dockerd --unregister-service
+net stop docker
+dockerd -H npipe:////./pipe/docker_engine -H 0.0.0.0:2375 --register-service
+net start docker
+
 $images = docker images | Out-String
 
 if (-Not ($images -like "*microsoft/nanoserver*"))

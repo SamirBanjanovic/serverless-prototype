@@ -86,30 +86,9 @@ namespace Serverless.Worker.Entities
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var lastExecutionTime = DateTime.UtcNow;
-                foreach (var container in this.Containers.Values)
-                {
-                    if (DateTime.UtcNow - container.LastExecutionTime >= TimeSpan.FromMinutes(ConfigurationProvider.InstanceCacheMinutes))
-                    {
-                        await this.Watchdogs[container]
-                            .CancelAsync()
-                            .ConfigureAwait(continueOnCapturedContext: false);
-
-                        lock (this.ExecutionManager)
-                        {
-                            this.ExecutionManager.AvailableMemory += this.Function.MemorySize;
-                        }
-
-                        Container removedInstance;
-                        this.Containers.TryRemove(
-                            key: container.Id,
-                            value: out removedInstance);
-                    }
-                    else if (container.LastExecutionTime < lastExecutionTime)
-                    {
-                        lastExecutionTime = container.LastExecutionTime;
-                    }
-                }
+                var lastExecutionTime = await this
+                    .RemoveExpiredContainers()
+                    .ConfigureAwait(continueOnCapturedContext: false);
 
                 await Task
                     .Delay(
@@ -136,6 +115,39 @@ namespace Serverless.Worker.Entities
             Directory.Delete(
                 path: codeDirectory,
                 recursive: true);
+        }
+
+        private async Task<DateTime> RemoveExpiredContainers()
+        {
+            var lastExecutionTime = DateTime.UtcNow;
+            foreach (var container in this.Containers.Values)
+            {
+                if (DateTime.UtcNow - container.LastExecutionTime >= TimeSpan.FromMinutes(ConfigurationProvider.InstanceCacheMinutes))
+                {
+                    await this.Watchdogs[container]
+                        .CancelAsync()
+                        .ConfigureAwait(continueOnCapturedContext: false);
+
+                    lock (this.ExecutionManager)
+                    {
+                        this.ExecutionManager.AvailableMemory += this.Function.MemorySize;
+                    }
+
+                    Container removedContainer;
+                    if (this.Containers.TryRemove(container.Id, out removedContainer))
+                    {
+                        await removedContainer
+                            .Delete()
+                            .ConfigureAwait(continueOnCapturedContext: false);
+                    }
+                }
+                else if (container.LastExecutionTime < lastExecutionTime)
+                {
+                    lastExecutionTime = container.LastExecutionTime;
+                }
+            }
+
+            return lastExecutionTime;
         }
 
         public async Task<ExecutionResponse> Execute(ExecutionRequest request, CancellationToken cancellationToken)
@@ -190,6 +202,18 @@ namespace Serverless.Worker.Entities
                 });
 
             return response;
+        }
+
+        public async Task Delete()
+        {
+            foreach (var container in this.Containers.Values)
+            {
+                container.LastExecutionTime = DateTime.MinValue;
+            }
+
+            await this
+                .RemoveExpiredContainers()
+                .ConfigureAwait(continueOnCapturedContext: false);
         }
     }
 }

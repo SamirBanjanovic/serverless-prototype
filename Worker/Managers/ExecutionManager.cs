@@ -134,9 +134,14 @@ namespace Serverless.Worker.Managers
 
             var deployment = this.Deployments[function.DeploymentId];
 
-            var executionRequestMessage = await deployment.DeploymentQueueClient
-                .ReceiveAsync(serverWaitTime: TimeSpan.Zero)
-                .ConfigureAwait(continueOnCapturedContext: false);
+            BrokeredMessage executionRequestMessage = null;
+            try
+            {
+                executionRequestMessage = await deployment.DeploymentQueueClient
+                    .ReceiveAsync(serverWaitTime: TimeSpan.Zero)
+                    .ConfigureAwait(continueOnCapturedContext: false);
+            }
+            catch (MessagingEntityNotFoundException) { }
 
             if (cancellationToken.IsCancellationRequested)
             {

@@ -51,9 +51,21 @@ namespace Serverless.Worker.Entities
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var executionRequestMessage = await this.DeploymentQueueClient
-                    .ReceiveAsync(serverWaitTime: TimeSpan.MaxValue)
-                    .ConfigureAwait(continueOnCapturedContext: false);
+                BrokeredMessage executionRequestMessage = null;
+                try
+                {
+                    executionRequestMessage = await this.DeploymentQueueClient
+                        .ReceiveAsync(serverWaitTime: TimeSpan.MaxValue)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+                }
+                catch (MessagingEntityNotFoundException) { }
+
+                if (executionRequestMessage == null)
+                {
+                    this.Deployment.Delete();
+
+                    return;
+                }
 
                 if (cancellationToken.IsCancellationRequested)
                 {

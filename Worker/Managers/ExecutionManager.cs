@@ -29,7 +29,7 @@ namespace Serverless.Worker.Managers
 
         private HashSet<Task> ExecutionTasks { get; set; }
 
-        private ConcurrentDictionary<string, Deployment> Deployments { get; set; }
+        private Dictionary<string, Deployment> Deployments { get; set; }
 
         private Task ManagementTask { get; set; }
 
@@ -45,7 +45,7 @@ namespace Serverless.Worker.Managers
 
             this.ExecutionTasks = new HashSet<Task>();
 
-            this.Deployments = new ConcurrentDictionary<string, Deployment>();
+            this.Deployments = new Dictionary<string, Deployment>();
 
             this.AvailableMemory = ConfigurationProvider.AvailableMemory;
 
@@ -85,7 +85,7 @@ namespace Serverless.Worker.Managers
                     }
                 }
 
-                while (this.AvailableMemory > ConfigurationProvider.MaximumFunctionMemory)
+                while (this.AvailableMemory >= ConfigurationProvider.MaximumFunctionMemory)
                 {
                     this.ExecutionTasks.Add(this.Execute(cancellationToken: cancellationToken));
 
@@ -121,15 +121,21 @@ namespace Serverless.Worker.Managers
                 .ParseBody<Function>()
                 .ConfigureAwait(continueOnCapturedContext: false);
 
-            var deployment = this.Deployments.GetOrAdd(
-                key: function.DeploymentId,
-                valueFactory: id => new Deployment(
-                    function: function,
-                    executionManager: this,
-                    cancellationToken: cancellationToken));
+            lock (this.Deployments)
+            {
+                if (!this.Deployments.ContainsKey(key: function.DeploymentId))
+                {
+                    this.Deployments[function.DeploymentId] = new Deployment(
+                        function: function,
+                        executionManager: this,
+                        cancellationToken: cancellationToken);
+                }
+            }
+
+            var deployment = this.Deployments[function.DeploymentId];
 
             var executionRequestMessage = await deployment.DeploymentQueueClient
-                .ReceiveAsync()
+                .ReceiveAsync(serverWaitTime: TimeSpan.Zero)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             if (cancellationToken.IsCancellationRequested)

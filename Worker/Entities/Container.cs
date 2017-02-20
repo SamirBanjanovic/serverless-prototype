@@ -89,7 +89,7 @@ namespace Serverless.Worker.Entities
                 Image = "serverless-node",
                 HostConfig = new HostConfig
                 {
-                    MemorySwap = memorySize,
+                    Memory = memorySize,
                     CPUShares = memorySize,
                     Binds = new List<string>
                     {

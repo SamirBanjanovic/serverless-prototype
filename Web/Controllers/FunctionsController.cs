@@ -22,8 +22,21 @@ namespace Serverless.Web.Controllers
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             return this.Request.CreateResponse(
-                value: functions.Select(function => function.ToModel()),
+                value: functions.Select(function => function.ToResponseModel()),
                 statusCode: HttpStatusCode.OK);
+        }
+
+        public async Task<HttpResponseMessage> Delete()
+        {
+            var functions = await FunctionsProvider
+                .List()
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            await Task
+                .WhenAll(functions.Select(function => FunctionsProvider.Delete(functionId: function.Id)))
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            return this.Request.CreateResponse(statusCode: HttpStatusCode.NoContent);
         }
 
         public async Task<HttpResponseMessage> Get(string functionId)
@@ -38,21 +51,22 @@ namespace Serverless.Web.Controllers
             }
 
             return this.Request.CreateResponse(
-                value: function.ToModel(),
+                value: function.ToResponseModel(),
                 statusCode: HttpStatusCode.OK);
         }
 
-        public async Task<HttpResponseMessage> Post([FromBody]FunctionModel function)
+        public async Task<HttpResponseMessage> Post([FromBody]FunctionRequestModel functionModel)
         {
-            function.Id = Guid.NewGuid().ToString();
-            function.DeploymentId = Guid.NewGuid().ToString();
+            var function = await Function
+                .FromRequestModel(model: functionModel)
+                .ConfigureAwait(continueOnCapturedContext: false);
 
             await FunctionsProvider
-                .Create(function: Function.FromModel(model: function))
+                .Create(function: function)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             var response = this.Request.CreateResponse(
-                value: function,
+                value: function.ToResponseModel(),
                 statusCode: HttpStatusCode.Created);
 
             response.Headers.Location = this.Request.RequestUri.Append(suffix: function.Id);
@@ -60,13 +74,16 @@ namespace Serverless.Web.Controllers
             return response;
         }
 
-        public async Task<HttpResponseMessage> Put(string functionId, [FromBody]FunctionModel function)
+        public async Task<HttpResponseMessage> Put(string functionId, [FromBody]FunctionRequestModel functionModel)
         {
-            function.Id = functionId;
-            function.DeploymentId = Guid.NewGuid().ToString();
+            var function = await Function
+                .FromRequestModel(
+                    model: functionModel,
+                    functionId: functionId)
+                .ConfigureAwait(continueOnCapturedContext: false);
 
             await FunctionsProvider
-                .Replace(function: Function.FromModel(model: function))
+                .Replace(function: function)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             return this.Request.CreateResponse(statusCode: HttpStatusCode.NoContent);

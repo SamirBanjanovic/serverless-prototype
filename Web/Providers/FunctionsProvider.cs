@@ -88,7 +88,7 @@ namespace Serverless.Web.Providers
                 .GetFunctionsTable()
                 .ConfigureAwait(continueOnCapturedContext: false);
 
-            var deleteOperation = TableOperation.Delete(entity: Function.FromModel(new FunctionModel { Id = functionId }));
+            var deleteOperation = TableOperation.Delete(entity: Function.FromId(functionId: functionId));
             
             try
             {

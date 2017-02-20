@@ -71,15 +71,18 @@ namespace Serverless.Worker.Managers
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var task = await Task
-                    .WhenAny(tasks: this.ExecutionTasks)
-                    .ConfigureAwait(continueOnCapturedContext: false);
-
-                this.ExecutionTasks.Remove(task);
-
-                lock (this)
+                if (this.ExecutionTasks.Count > 0)
                 {
-                    this.AvailableMemory += ConfigurationProvider.MaximumFunctionMemory;
+                    var task = await Task
+                        .WhenAny(tasks: this.ExecutionTasks)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+
+                    this.ExecutionTasks.Remove(task);
+
+                    lock (this)
+                    {
+                        this.AvailableMemory += ConfigurationProvider.MaximumFunctionMemory;
+                    }
                 }
 
                 while (this.AvailableMemory > ConfigurationProvider.MaximumFunctionMemory)
@@ -90,6 +93,15 @@ namespace Serverless.Worker.Managers
                     {
                         this.AvailableMemory -= ConfigurationProvider.MaximumFunctionMemory;
                     }
+                }
+
+                if (this.ExecutionTasks.Count == 0)
+                {
+                    await Task
+                        .Delay(
+                            delay: TimeSpan.FromSeconds(1),
+                            cancellationToken: cancellationToken)
+                        .ConfigureAwait(continueOnCapturedContext: false);
                 }
             }
         }
@@ -120,7 +132,12 @@ namespace Serverless.Worker.Managers
                 .ReceiveAsync()
                 .ConfigureAwait(continueOnCapturedContext: false);
 
-            if (executionRequestMessage != null && !cancellationToken.IsCancellationRequested)
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (executionRequestMessage != null)
             {
                 var executionRequest = await executionRequestMessage
                     .ParseBody<ExecutionRequest>()
@@ -145,7 +162,15 @@ namespace Serverless.Worker.Managers
                         content: executionResponse,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(continueOnCapturedContext: false);
+
+                await executionRequestMessage
+                    .CompleteAsync()
+                    .ConfigureAwait(continueOnCapturedContext: false);
             }
+
+            await functionMessage
+                .CompleteAsync()
+                .ConfigureAwait(continueOnCapturedContext: false);
         }
     }
 }

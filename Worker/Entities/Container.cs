@@ -11,7 +11,7 @@ using Serverless.Worker.Models;
 using Serverless.Worker.Providers;
 using Docker.DotNet;
 using Docker.DotNet.Models;
-using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Serverless.Worker.Entities
 {
@@ -49,7 +49,7 @@ namespace Serverless.Worker.Entities
             var response = await HttpClient
                 .PostAsync(
                     requestUri: this.Uri,
-                    content: request,
+                    content: request.Input,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
@@ -58,9 +58,14 @@ namespace Serverless.Worker.Entities
                 return null;
             }
 
-            return await response.Content
-                .FromJson<ExecutionResponse>()
+            var output = await response.Content
+                .FromJson<JToken>()
                 .ConfigureAwait(continueOnCapturedContext: false);
+
+            return new ExecutionResponse
+            {
+                Output = output
+            };
         }
 
         public Task Delete()
@@ -76,36 +81,29 @@ namespace Serverless.Worker.Entities
 
         public static async Task<Container> Create(string deploymentId, int memorySize, CancellationToken cancellationToken)
         {
-            var createResponse = await Container.DockerClient.Containers
-                .CreateContainerAsync(parameters: new CreateContainerParameters
-                {
-                    Image = "serverless-node",
-                    HostConfig = new HostConfig
-                    {
-                        MemorySwap = memorySize,
-                        CPUShares = memorySize
-                    },
-                    Volumes =
-                    {
-                        {
-                            "C:/deployments/" + deploymentId,
-                            new Dictionary<string, string>
-                            {
-                                { "bind", "C:/function" },
-                                { "mode", "ro" }
-                            }
-                        }
-                    }
-                })
-                .ConfigureAwait(continueOnCapturedContext: false);
+            var dockerUri = new Uri(ConfigurationProvider.DockerUri);
+            var dockerClient = new DockerClientConfiguration(endpoint: dockerUri).CreateClient();
 
-            if (cancellationToken.IsCancellationRequested)
+            var parameters = new CreateContainerParameters
             {
-                return null;
-            }
+                Image = "serverless-node",
+                HostConfig = new HostConfig
+                {
+                    MemorySwap = memorySize,
+                    CPUShares = memorySize,
+                    Binds = new List<string>
+                    {
+                        "C:/deployments/" + deploymentId + ":C:/function:ro"
+                    }
+                },
+                Volumes = new Dictionary<string, object>
+                {
+                    { "C:/function", new { } }
+                }
+            };
 
-            var inspectResponse = await Container.DockerClient.Containers
-                .InspectContainerAsync(id: createResponse.ID)
+            var createResponse = await dockerClient.Containers
+                .CreateContainerAsync(parameters: parameters)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             if (cancellationToken.IsCancellationRequested)
@@ -117,6 +115,15 @@ namespace Serverless.Worker.Entities
                 .StartContainerAsync(
                     id: createResponse.ID,
                     parameters: new ContainerStartParameters { })
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            var inspectResponse = await Container.DockerClient.Containers
+                .InspectContainerAsync(id: createResponse.ID)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             return new Container(

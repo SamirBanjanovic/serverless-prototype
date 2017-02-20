@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Web;
+using Serverless.Web.Providers;
 using Serverless.Web.Models;
 using Microsoft.WindowsAzure.Storage.Table;
 
@@ -19,9 +21,9 @@ namespace Serverless.Web.Entities
 
         public int MemorySize { get; set; }
 
-        public FunctionModel ToModel()
+        public FunctionResponseModel ToResponseModel()
         {
-            return new FunctionModel
+            return new FunctionResponseModel
             {
                 Id = this.Id,
                 DeploymentId = this.DeploymentId,
@@ -31,18 +33,38 @@ namespace Serverless.Web.Entities
             };
         }
 
-        public static Function FromModel(FunctionModel model)
+        public static async Task<Function> FromRequestModel(FunctionRequestModel model, string functionId = null)
+        {
+            functionId = functionId ?? Guid.NewGuid().ToString();
+            var deploymentId = Guid.NewGuid().ToString();
+
+            var blobUri = await BlobProvider
+                .CreateDeploymentBlob(
+                    deploymentId: deploymentId,
+                    zipFile: model.ZipFile)
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            return new Function
+            {
+                PartitionKey = "functions",
+                RowKey = functionId,
+                ETag = "*",
+                Id = functionId,
+                DeploymentId = deploymentId,
+                DisplayName = model.DisplayName,
+                BlobUri = blobUri,
+                MemorySize = model.MemorySize
+            };
+        }
+
+        public static Function FromId(string functionId)
         {
             return new Function
             {
                 PartitionKey = "functions",
-                RowKey = model.Id,
+                RowKey = functionId,
                 ETag = "*",
-                Id = model.Id,
-                DeploymentId = model.DeploymentId,
-                DisplayName = model.DisplayName,
-                BlobUri = model.BlobUri,
-                MemorySize = model.MemorySize
+                Id = functionId
             };
         }
     }

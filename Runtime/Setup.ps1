@@ -13,16 +13,16 @@ if (-Not ($images -like "*microsoft/nanoserver*"))
     docker pull microsoft/nanoserver
 }
 
-if (-Not (Test-Path nodejs))
+if (-Not (Test-Path node\node.exe))
 {
-    wget -Uri https://nodejs.org/dist/v4.6.0/node-v4.6.0-x64.msi -OutFile node.msi -UseBasicParsing
+    wget -Uri https://nodejs.org/dist/v6.9.5/node-v6.9.5-x64.msi -OutFile node.msi -UseBasicParsing
     Start-Process -FilePath msiexec -ArgumentList /q, /i, node.msi -Wait
     Remove-Item -Path node.msi
-    New-Item nodejs -type Directory
-    Copy-Item '\Program Files\nodejs\node.exe' nodejs\node.exe
+    Copy-Item '\Program Files\nodejs\node.exe' node\node.exe
 }
 
 if (-Not ($images -like "*serverless-node*"))
 {
+    cd node
     docker build -t serverless-node .
 }

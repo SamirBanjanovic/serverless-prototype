@@ -43,7 +43,7 @@ namespace Serverless.Web.Providers
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             await executionQueue
-                .SendAsync<FunctionModel>(message: function.ToModel())
+                .SendAsync<FunctionResponseModel>(message: function.ToResponseModel())
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             return await tcs.Task.ConfigureAwait(continueOnCapturedContext: false);

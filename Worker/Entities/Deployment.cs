@@ -41,6 +41,8 @@ namespace Serverless.Worker.Entities
                 connectionString: ConfigurationProvider.ServiceBusConnectionString,
                 path: this.Function.DeploymentId);
 
+            this.ExecutionManager = executionManager;
+
             this.Containers = new ConcurrentDictionary<string, Container>();
             this.ContainerStack = new ConcurrentStack<string>();
             this.Watchdogs = new ConcurrentDictionary<Container, DeploymentWatchdog>();

@@ -23,12 +23,12 @@ namespace Serverless.Worker.Entities
 
         public DeploymentWatchdog(Deployment deployment)
         {
+            this.Deployment = deployment;
+
             this.HttpClient = new HttpClient();
             this.DeploymentQueueClient = QueueClient.CreateFromConnectionString(
                 connectionString: ConfigurationProvider.ServiceBusConnectionString,
                 path: this.Deployment.Function.DeploymentId);
-
-            this.Deployment = deployment;
 
             this.CancellationTokenSource = new CancellationTokenSource();
             this.WatchTask = this.Watch(cancellationToken: this.CancellationTokenSource.Token);
@@ -82,6 +82,10 @@ namespace Serverless.Worker.Entities
                             arg0: executionRequest.ExecutionId),
                         content: executionResponse,
                         cancellationToken: cancellationToken)
+                    .ConfigureAwait(continueOnCapturedContext: false);
+
+                await executionRequestMessage
+                    .CompleteAsync()
                     .ConfigureAwait(continueOnCapturedContext: false);
             }
         }

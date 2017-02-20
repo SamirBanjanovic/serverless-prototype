@@ -33,7 +33,16 @@ namespace Serverless.Web.Controllers
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             await Task
-                .WhenAll(functions.Select(function => FunctionsProvider.Delete(functionId: function.Id)))
+                .WhenAll(functions.Select(async function =>
+                {
+                    await FunctionsProvider
+                        .Delete(functionId: function.Id)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+
+                    await ExecutionProvider
+                        .DeleteQueue(function: function)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+                }))
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             return this.Request.CreateResponse(statusCode: HttpStatusCode.NoContent);

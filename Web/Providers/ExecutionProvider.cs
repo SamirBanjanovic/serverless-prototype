@@ -54,6 +54,11 @@ namespace Serverless.Web.Providers
             ExecutionProvider.Responses[executionId].TrySetResult(result: response);
         }
 
+        public static Task DeleteQueue(Function function)
+        {
+            return ExecutionProvider.DeleteQueue(path: function.DeploymentId);
+        }
+
         private static async Task<QueueClient> GetQueue(string path)
         {
             var queueExists = await ConfigurationProvider.NamespaceManager
@@ -70,6 +75,20 @@ namespace Serverless.Web.Providers
             }
 
             return ConfigurationProvider.ParseQueueClient(path: path);
+        }
+
+        private static async Task DeleteQueue(string path)
+        {
+            var queueExists = await ConfigurationProvider.NamespaceManager
+                .QueueExistsAsync(path: path)
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            if (queueExists)
+            {
+                await ConfigurationProvider.NamespaceManager
+                    .DeleteQueueAsync(path: path)
+                    .ConfigureAwait(continueOnCapturedContext: false);
+            }
         }
     }
 }

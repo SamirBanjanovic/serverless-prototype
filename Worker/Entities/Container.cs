@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -46,7 +47,9 @@ namespace Serverless.Worker.Entities
 
         public async Task<ExecutionResponse> Execute(ExecutionRequest request, CancellationToken cancellationToken)
         {
-            var response = await HttpClient
+            this.LastExecutionTime = DateTime.UtcNow;
+
+            var response = await Container.HttpClient
                 .PostAsync(
                     requestUri: this.Uri,
                     content: request.Input,
@@ -121,6 +124,24 @@ namespace Serverless.Worker.Entities
             {
                 return null;
             }
+
+            string startMessage = string.Empty;
+            do
+            {
+                var logStream = await Container.DockerClient.Containers
+                    .GetContainerLogsAsync(
+                        id: createResponse.ID,
+                        parameters: new ContainerLogsParameters
+                        {
+                            ShowStdout = true,
+                            Tail = "1"
+                        },
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(continueOnCapturedContext: false);
+
+                startMessage = new StreamReader(stream: logStream).ReadToEnd();
+            }
+            while (!startMessage.Contains("started") && !cancellationToken.IsCancellationRequested);
 
             var inspectResponse = await Container.DockerClient.Containers
                 .InspectContainerAsync(id: createResponse.ID)

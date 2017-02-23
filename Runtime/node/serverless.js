@@ -14,4 +14,6 @@ http.createServer(function(request, response) {
     var output = handler(input);
     response.end(JSON.stringify(output));
   });
-}).listen(8080);
+}).listen(8080, () => {
+  console.log('started');
+});

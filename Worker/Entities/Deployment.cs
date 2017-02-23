@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Docker.DotNet;
 using Serverless.Worker.Managers;
 using Serverless.Worker.Models;
 using Serverless.Worker.Providers;
@@ -136,9 +137,25 @@ namespace Serverless.Worker.Entities
                     Container removedContainer;
                     if (this.Containers.TryRemove(container.Id, out removedContainer))
                     {
-                        await removedContainer
-                            .Delete()
-                            .ConfigureAwait(continueOnCapturedContext: false);
+                        // Keep an eye on this, it looks like an Engine API bug on remove.
+                        try
+                        {
+                            await removedContainer
+                                .Delete()
+                                .ConfigureAwait(continueOnCapturedContext: false);
+                        }
+                        catch (DockerApiException exception)
+                        {
+                            if (exception.Message.Contains("windowsfilter"))
+                            {
+                                Console.WriteLine(exception.Message);
+                                Console.WriteLine(exception.StackTrace);
+                            }
+                            else
+                            {
+                                throw;
+                            }
+                        }
                     }
                 }
                 else if (container.LastExecutionTime < lastExecutionTime)

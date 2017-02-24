@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -26,6 +27,8 @@ namespace Serverless.Web.Providers
 
         public static async Task<ExecutionResponse> Execute(Function function, ExecutionRequest request)
         {
+            var stopwatch = Stopwatch.StartNew();
+
             var deploymentQueue = await ConfigurationProvider
                 .GetQueueClient(path: function.DeploymentId)
                 .ConfigureAwait(continueOnCapturedContext: false);
@@ -38,15 +41,47 @@ namespace Serverless.Web.Providers
 
             ExecutionProvider.Responses[request.ExecutionId] = tcs;
 
+            var setupLog = new ExecutionLog
+            {
+                Name = "ExecutionProvider.Execute.GetQueues",
+                Duration = stopwatch.ElapsedMilliseconds
+            };
+
             await deploymentQueue
                 .SendAsync<ExecutionRequest>(message: request)
                 .ConfigureAwait(continueOnCapturedContext: false);
+
+            var deploymentMessageLog = new ExecutionLog
+            {
+                Name = "ExecutionProvider.Execute.DeploymentMessage",
+                Duration = stopwatch.ElapsedMilliseconds - setupLog.Duration
+            };
 
             await executionQueue
                 .SendAsync<FunctionResponseModel>(message: function.ToResponseModel())
                 .ConfigureAwait(continueOnCapturedContext: false);
 
-            return await tcs.Task.ConfigureAwait(continueOnCapturedContext: false);
+            var executionMessageLog = new ExecutionLog
+            {
+                Name = "ExecutionProvider.Execute.ExecutionMessage",
+                Duration = stopwatch.ElapsedMilliseconds - deploymentMessageLog.Duration
+            };
+
+            var response = await tcs.Task.ConfigureAwait(continueOnCapturedContext: false);
+            response.Logs = new ExecutionLog
+            {
+                Name = "ExecutionProvider.Execute",
+                Duration = stopwatch.ElapsedMilliseconds,
+                SubLogs = new[]
+                {
+                    setupLog,
+                    deploymentMessageLog,
+                    executionMessageLog,
+                    response.Logs
+                }
+            };
+
+            return response;
         }
 
         public static void Respond(string executionId, ExecutionResponse response)

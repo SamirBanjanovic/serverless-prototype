@@ -31,40 +31,69 @@ namespace Serverless.Web.Providers
                 Duration = stopwatch.ElapsedMilliseconds
             };
 
-            await QueueProvider
-                .AddMessage(
+            var executionMessageTask = Task
+                .Delay(delay: TimeSpan.FromMilliseconds(100))
+                .ContinueWith(task => QueueProvider.AddMessage(
                     queueName: ServerlessConfiguration.ExecutionQueueName,
-                    message: function.ToResponseModel())
+                    message: function.ToResponseModel()));
+
+            var responseTask = ExecutionProvider.Responses[request.ExecutionId].Task;
+
+            await Task
+                .WhenAny(executionMessageTask, responseTask)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
-            var executionMessageLog = new ExecutionLog
+            ExecutionResponse response;
+            if (responseTask.IsCompleted)
             {
-                Name = "ExecutionProvider.Execute.ExecutionMessage",
-                Duration = stopwatch.ElapsedMilliseconds - deploymentMessageLog.Duration
-            };
-
-            var response = await ExecutionProvider.Responses[request.ExecutionId]
-                .Task
-                .ConfigureAwait(continueOnCapturedContext: false);
-
-            var responseLog = new ExecutionLog
-            {
-                Name = "ExecutionProvider.Execute.AwaitResponse",
-                Duration = stopwatch.ElapsedMilliseconds - executionMessageLog.Duration
-            };
-
-            response.Logs = new ExecutionLog
-            {
-                Name = "ExecutionProvider.Execute",
-                Duration = stopwatch.ElapsedMilliseconds,
-                SubLogs = new[]
+                var responseLog = new ExecutionLog
                 {
-                    deploymentMessageLog,
-                    executionMessageLog,
-                    responseLog,
-                    response.Logs
-                }
-            };
+                    Name = "ExecutionProvider.Execute.AwaitResponse",
+                    Duration = stopwatch.ElapsedMilliseconds - deploymentMessageLog.Duration
+                };
+
+                response = responseTask.Result;
+                response.Logs = new ExecutionLog
+                {
+                        Name = "ExecutionProvider.Execute",
+                        Duration = stopwatch.ElapsedMilliseconds,
+                        SubLogs = new[]
+                        {
+                            deploymentMessageLog,
+                            responseLog,
+                            response.Logs
+                        }
+                };
+            }
+            else
+            {
+                var executionMessageLog = new ExecutionLog
+                {
+                    Name = "ExecutionProvider.Execute.ExecutionMessage",
+                    Duration = stopwatch.ElapsedMilliseconds - deploymentMessageLog.Duration
+                };
+
+                response = await responseTask.ConfigureAwait(continueOnCapturedContext: false);
+
+                var responseLog = new ExecutionLog
+                {
+                    Name = "ExecutionProvider.Execute.AwaitResponse",
+                    Duration = stopwatch.ElapsedMilliseconds - executionMessageLog.Duration
+                };
+
+                response.Logs = new ExecutionLog
+                {
+                    Name = "ExecutionProvider.Execute",
+                    Duration = stopwatch.ElapsedMilliseconds,
+                    SubLogs = new[]
+                    {
+                        deploymentMessageLog,
+                        executionMessageLog,
+                        responseLog,
+                        response.Logs
+                    }
+                };
+            }
 
             return response;
         }

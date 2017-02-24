@@ -221,7 +221,6 @@ namespace Serverless.Worker.Entities
                     return new DeploymentWatchdog(deployment: this);
                 });
 
-            response.Logs.
             return response;
         }
 

@@ -26,12 +26,12 @@ namespace Serverless.Web.Providers
 
         public static async Task<ExecutionResponse> Execute(Function function, ExecutionRequest request)
         {
-            var deploymentQueue = await ExecutionProvider
-                .GetQueue(path: function.DeploymentId)
+            var deploymentQueue = await ConfigurationProvider
+                .GetQueueClient(path: function.DeploymentId)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
-            var executionQueue = await ExecutionProvider
-                .GetQueue(path: ConfigurationProvider.ExecutionQueueName)
+            var executionQueue = await ConfigurationProvider
+                .GetQueueClient(path: ConfigurationProvider.ExecutionQueueName)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             var tcs = new TaskCompletionSource<ExecutionResponse>();
@@ -57,24 +57,6 @@ namespace Serverless.Web.Providers
         public static Task DeleteQueue(Function function)
         {
             return ExecutionProvider.DeleteQueue(path: function.DeploymentId);
-        }
-
-        private static async Task<QueueClient> GetQueue(string path)
-        {
-            var queueExists = await ConfigurationProvider.NamespaceManager
-                .QueueExistsAsync(path: path)
-                .ConfigureAwait(continueOnCapturedContext: false);
-
-            if (!queueExists)
-            {
-                var queueDescription = new QueueDescription(path: path);
-
-                await ConfigurationProvider.NamespaceManager
-                    .CreateQueueAsync(description: queueDescription)
-                    .ConfigureAwait(continueOnCapturedContext: false);
-            }
-
-            return ConfigurationProvider.ParseQueueClient(path: path);
         }
 
         private static async Task DeleteQueue(string path)

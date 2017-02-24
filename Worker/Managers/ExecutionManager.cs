@@ -22,8 +22,6 @@ namespace Serverless.Worker.Managers
     {
         public HttpClient HttpClient { get; set; }
 
-        public QueueClient ExecutionQueueClient { get; set; }
-
         public int AvailableMemory { get; set; }
 
         private CancellationTokenSource CancellationTokenSource { get; set; }
@@ -37,10 +35,6 @@ namespace Serverless.Worker.Managers
         public void Start()
         {
             this.HttpClient = new HttpClient();
-
-            this.ExecutionQueueClient = QueueClient.CreateFromConnectionString(
-                connectionString: ConfigurationProvider.ServiceBusConnectionString,
-                path: ConfigurationProvider.ExecutionQueueName);
 
             this.CancellationTokenSource = new CancellationTokenSource();
 
@@ -58,8 +52,6 @@ namespace Serverless.Worker.Managers
             this.CancellationTokenSource.Cancel();
 
             this.HttpClient.CancelPendingRequests();
-
-            this.ExecutionQueueClient.Close();
 
             this.ManagementTask.Wait();
 
@@ -109,7 +101,11 @@ namespace Serverless.Worker.Managers
 
         public async Task Execute(CancellationToken cancellationToken)
         {
-            var functionMessage = await this.ExecutionQueueClient
+            var executionQueueClient = await ServiceBusProvider
+                .GetQueueClient(path: ConfigurationProvider.ExecutionQueueName)
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            var functionMessage = await executionQueueClient
                 .ReceiveAsync(serverWaitTime: TimeSpan.MaxValue)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
@@ -135,12 +131,14 @@ namespace Serverless.Worker.Managers
                 }
             }
 
-            var deployment = this.Deployments[function.DeploymentId];
-
             BrokeredMessage executionRequestMessage = null;
             try
             {
-                executionRequestMessage = await deployment.DeploymentQueueClient
+                var deploymentQueueClient = await ServiceBusProvider
+                    .GetQueueClient(path: function.DeploymentId)
+                    .ConfigureAwait(continueOnCapturedContext: false);
+
+                executionRequestMessage = await deploymentQueueClient
                     .ReceiveAsync(serverWaitTime: TimeSpan.Zero)
                     .ConfigureAwait(continueOnCapturedContext: false);
             }
@@ -156,6 +154,8 @@ namespace Serverless.Worker.Managers
                 var executionRequest = await executionRequestMessage
                     .ParseBody<ExecutionRequest>()
                     .ConfigureAwait(continueOnCapturedContext: false);
+
+                var deployment = this.Deployments[function.DeploymentId];
 
                 var executionResponse = await deployment
                     .Execute(

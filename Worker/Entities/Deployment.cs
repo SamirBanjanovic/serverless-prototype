@@ -19,8 +19,6 @@ namespace Serverless.Worker.Entities
 {
     public class Deployment
     {
-        public QueueClient DeploymentQueueClient { get; private set; }
-
         private ExecutionManager ExecutionManager { get; set; }
 
         public Function Function { get; private set; }
@@ -38,10 +36,6 @@ namespace Serverless.Worker.Entities
         public Deployment(Function function, ExecutionManager executionManager, CancellationToken cancellationToken)
         {
             this.Function = function;
-
-            this.DeploymentQueueClient = QueueClient.CreateFromConnectionString(
-                connectionString: ConfigurationProvider.ServiceBusConnectionString,
-                path: this.Function.DeploymentId);
 
             this.ExecutionManager = executionManager;
 

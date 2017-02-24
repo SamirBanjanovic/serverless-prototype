@@ -14,8 +14,6 @@ namespace Serverless.Worker.Entities
     {
         private HttpClient HttpClient { get; set; }
 
-        private QueueClient DeploymentQueueClient { get; set; }
-
         private Deployment Deployment { get; set; }
 
         private CancellationTokenSource CancellationTokenSource { get; set; }
@@ -27,9 +25,6 @@ namespace Serverless.Worker.Entities
             this.Deployment = deployment;
 
             this.HttpClient = new HttpClient();
-            this.DeploymentQueueClient = QueueClient.CreateFromConnectionString(
-                connectionString: ConfigurationProvider.ServiceBusConnectionString,
-                path: this.Deployment.Function.DeploymentId);
 
             this.CancellationTokenSource = new CancellationTokenSource();
             this.WatchTask = this.Watch(cancellationToken: this.CancellationTokenSource.Token);
@@ -41,8 +36,8 @@ namespace Serverless.Worker.Entities
 
             this.HttpClient.CancelPendingRequests();
 
-            await this
-                .DeploymentQueueClient.CloseAsync()
+            await ServiceBusProvider
+                .CloseQueueClient(path: this.Deployment.Function.DeploymentId)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             await this.WatchTask.ConfigureAwait(continueOnCapturedContext: false);
@@ -55,7 +50,11 @@ namespace Serverless.Worker.Entities
                 BrokeredMessage executionRequestMessage = null;
                 try
                 {
-                    executionRequestMessage = await this.DeploymentQueueClient
+                    var deploymentQueueClient = await ServiceBusProvider
+                        .GetQueueClient(path: this.Deployment.Function.DeploymentId)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+
+                    executionRequestMessage = await deploymentQueueClient
                         .ReceiveAsync(serverWaitTime: TimeSpan.MaxValue)
                         .ConfigureAwait(continueOnCapturedContext: false);
                 }

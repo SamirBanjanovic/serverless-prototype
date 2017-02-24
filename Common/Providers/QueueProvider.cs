@@ -65,6 +65,10 @@ namespace Serverless.Common.Providers
                 {
                     return message;
                 }
+
+                await Task
+                    .Delay(delay: TimeSpan.FromMilliseconds(50))
+                    .ConfigureAwait(continueOnCapturedContext: false);
             }
 
             return null;

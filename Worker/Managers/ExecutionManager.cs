@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,10 @@ namespace Serverless.Worker.Managers
 
         public void Start()
         {
+            ServicePointManager.Expect100Continue = false;
+            ServicePointManager.UseNagleAlgorithm = false;
+            ServicePointManager.DefaultConnectionLimit = int.MaxValue;
+
             this.HttpClient = new HttpClient();
 
             this.CancellationTokenSource = new CancellationTokenSource();
@@ -167,14 +172,14 @@ namespace Serverless.Worker.Managers
 
                 await QueueProvider
                     .DeleteMessage(
-                        queueName: ServerlessConfiguration.ExecutionQueueName,
+                        queueName: function.DeploymentId,
                         message: executionRequestMessage)
                     .ConfigureAwait(continueOnCapturedContext: false);
             }
 
             await QueueProvider
                 .DeleteMessage(
-                    queueName: function.DeploymentId,
+                    queueName: ServerlessConfiguration.ExecutionQueueName,
                     message: functionMessage)
                 .ConfigureAwait(continueOnCapturedContext: false);
         }

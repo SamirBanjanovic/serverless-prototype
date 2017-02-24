@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
-using System.Web;
 using System.Web.Http;
-using Serverless.Web.Models;
+using Serverless.Common.Models;
 using Serverless.Web.Providers;
 
 namespace Serverless.Web.Controllers

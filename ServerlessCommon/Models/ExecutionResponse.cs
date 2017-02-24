@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Net;
 using Newtonsoft.Json.Linq;
 
-namespace Serverless.Worker.Models
+namespace Serverless.Common.Models
 {
     public class ExecutionResponse
     {

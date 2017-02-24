@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Web;
 
-namespace Serverless.Worker.Models
+namespace Serverless.Common.Models
 {
     public class ExecutionLog
     {
         public string Name { get; set; }
 
         public long Duration { get; set; }
+
+        public ExecutionLog[] SubLogs { get; set; }
     }
 }

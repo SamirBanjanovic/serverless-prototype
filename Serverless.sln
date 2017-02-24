@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessWorker", "Worker\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessWeb", "Web\ServerlessWeb.csproj", "{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessCommon", "ServerlessCommon\ServerlessCommon.csproj", "{BC185A88-DA14-4219-9519-D7FC1C4CBC11}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +19,14 @@ Global
 		{7D7EFD00-F421-4633-AEA2-D7223FF01FF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7D7EFD00-F421-4633-AEA2-D7223FF01FF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7D7EFD00-F421-4633-AEA2-D7223FF01FF7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Debug|Any CPU.ActiveCfg = Release|Any CPU
+		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Debug|Any CPU.Build.0 = Release|Any CPU
 		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC185A88-DA14-4219-9519-D7FC1C4CBC11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC185A88-DA14-4219-9519-D7FC1C4CBC11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC185A88-DA14-4219-9519-D7FC1C4CBC11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC185A88-DA14-4219-9519-D7FC1C4CBC11}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

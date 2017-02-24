@@ -5,7 +5,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web.Http;
 using Newtonsoft.Json.Linq;
-using Serverless.Web.Models;
+using Serverless.Common.Models;
 using Serverless.Web.Providers;
 
 namespace Serverless.Web.Controllers

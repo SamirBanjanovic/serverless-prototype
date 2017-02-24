@@ -2,14 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Serverless.Common.Configuration;
+using Serverless.Common.Models;
 using Serverless.Worker.Extensions;
-using Serverless.Worker.Managers;
-using Serverless.Worker.Models;
-using Serverless.Worker.Providers;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Newtonsoft.Json.Linq;
@@ -32,7 +30,7 @@ namespace Serverless.Worker.Entities
         {
             Container.HttpClient = new HttpClient();
 
-            var dockerUri = new Uri(ConfigurationProvider.DockerUri);
+            var dockerUri = new Uri(ServerlessConfiguration.DockerUri);
             Container.DockerClient = new DockerClientConfiguration(endpoint: dockerUri).CreateClient();
         }
 
@@ -41,7 +39,7 @@ namespace Serverless.Worker.Entities
             this.Id = id;
             this.LastExecutionTime = DateTime.UtcNow;
             this.Uri = new Uri(string.Format(
-                format: ConfigurationProvider.ContainerUriTemplate,
+                format: ServerlessConfiguration.ContainerUriTemplate,
                 arg0: ipAddress));
         }
 
@@ -88,7 +86,7 @@ namespace Serverless.Worker.Entities
 
         public static async Task<Container> Create(string deploymentId, int memorySize, CancellationToken cancellationToken)
         {
-            var dockerUri = new Uri(ConfigurationProvider.DockerUri);
+            var dockerUri = new Uri(ServerlessConfiguration.DockerUri);
             var dockerClient = new DockerClientConfiguration(endpoint: dockerUri).CreateClient();
 
             var parameters = new CreateContainerParameters
@@ -153,7 +151,7 @@ namespace Serverless.Worker.Entities
 
             return new Container(
                 id: inspectResponse.ID,
-                ipAddress: inspectResponse.NetworkSettings.Networks[ConfigurationProvider.DockerNetworkName].IPAddress);
+                ipAddress: inspectResponse.NetworkSettings.Networks[ServerlessConfiguration.DockerNetworkName].IPAddress);
         }
     }
 }

@@ -1,13 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
-using System.Web;
-using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
+using Serverless.Common.Configuration;
 
 namespace Serverless.Web.Providers
 {
@@ -51,7 +45,7 @@ namespace Serverless.Web.Providers
 
         private static async Task<CloudBlockBlob> GetDeploymentBlob(string deploymentId)
         {
-            var blobClient = ConfigurationProvider.StorageAccount.CreateCloudBlobClient();
+            var blobClient = ServerlessConfiguration.StorageAccount.CreateCloudBlobClient();
 
             var deploymentsContainer = blobClient.GetContainerReference(containerName: "deployments");
 

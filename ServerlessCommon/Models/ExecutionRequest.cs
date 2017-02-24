@@ -1,7 +1,7 @@
 ﻿using System;
 using Newtonsoft.Json.Linq;
 
-namespace Serverless.Worker.Models
+namespace Serverless.Common.Models
 {
     public class ExecutionRequest
     {

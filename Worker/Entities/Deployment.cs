@@ -1,19 +1,17 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Docker.DotNet;
+using Microsoft.WindowsAzure.Storage.Blob;
+using Serverless.Common.Configuration;
+using Serverless.Common.Models;
 using Serverless.Worker.Managers;
 using Serverless.Worker.Models;
-using Serverless.Worker.Providers;
-using Microsoft.ServiceBus.Messaging;
-using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace Serverless.Worker.Entities
 {
@@ -51,8 +49,8 @@ namespace Serverless.Worker.Entities
         {
             var codeBlob = new CloudBlockBlob(blobAbsoluteUri: new Uri(this.Function.BlobUri));
             var codeDirectoryRoot = string.Format(
-                format: ConfigurationProvider.CodeDirectoryTemplate,
-                arg0: ConfigurationProvider.DriveName);
+                format: ServerlessConfiguration.CodeDirectoryTemplate,
+                arg0: ServerlessConfiguration.DriveName);
             var codeDirectory = Path.Combine(codeDirectoryRoot, this.Function.DeploymentId);
             var codePath = Path.Combine(codeDirectory, codeBlob.Name);
 
@@ -88,7 +86,7 @@ namespace Serverless.Worker.Entities
 
                 await Task
                     .Delay(
-                        delay: TimeSpan.FromMinutes(ConfigurationProvider.InstanceCacheMinutes) - (DateTime.UtcNow - lastExecutionTime),
+                        delay: TimeSpan.FromMinutes(ServerlessConfiguration.InstanceCacheMinutes) - (DateTime.UtcNow - lastExecutionTime),
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(continueOnCapturedContext: false);
             }
@@ -104,8 +102,8 @@ namespace Serverless.Worker.Entities
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             var codeDirectoryRoot = string.Format(
-                format: ConfigurationProvider.CodeDirectoryTemplate,
-                arg0: ConfigurationProvider.DriveName);
+                format: ServerlessConfiguration.CodeDirectoryTemplate,
+                arg0: ServerlessConfiguration.DriveName);
             var codeDirectory = Path.Combine(codeDirectoryRoot, this.Function.DeploymentId);
 
             Directory.Delete(
@@ -118,7 +116,7 @@ namespace Serverless.Worker.Entities
             var lastExecutionTime = DateTime.UtcNow;
             foreach (var container in this.Containers.Values)
             {
-                if (DateTime.UtcNow - container.LastExecutionTime >= TimeSpan.FromMinutes(ConfigurationProvider.InstanceCacheMinutes))
+                if (DateTime.UtcNow - container.LastExecutionTime >= TimeSpan.FromMinutes(ServerlessConfiguration.InstanceCacheMinutes))
                 {
                     await this.Watchdogs[container]
                         .CancelAsync()

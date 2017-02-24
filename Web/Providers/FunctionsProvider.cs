@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using System.Web;
 using System.Web.Http;
+using Serverless.Common.Configuration;
 using Serverless.Web.Entities;
 using Serverless.Web.Extensions;
-using Serverless.Web.Models;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 
@@ -109,7 +107,7 @@ namespace Serverless.Web.Providers
 
         private static async Task<CloudTable> GetFunctionsTable()
         {
-            var tableClient = ConfigurationProvider.StorageAccount.CreateCloudTableClient();
+            var tableClient = ServerlessConfiguration.StorageAccount.CreateCloudTableClient();
 
             var functionsTable = tableClient.GetTableReference(tableName: "functions");
 

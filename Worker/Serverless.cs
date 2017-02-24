@@ -1,9 +1,7 @@
 ﻿using System;
 using System.ServiceProcess;
-using System.Threading;
-using System.Threading.Tasks;
+using Serverless.Common.Configuration;
 using Serverless.Worker.Managers;
-using Serverless.Worker.Providers;
 
 namespace Serverless.Worker
 {
@@ -15,7 +13,7 @@ namespace Serverless.Worker
         {
             public Service()
             {
-                this.ServiceName = ConfigurationProvider.ServiceName;
+                this.ServiceName = ServerlessConfiguration.ServiceName;
             }
 
             protected override void OnStart(string[] args)

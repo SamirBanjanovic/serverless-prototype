@@ -1,20 +1,17 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Serverless.Common.Configuration;
+using Serverless.Common.Extensions;
+using Serverless.Common.Providers;
+using Serverless.Common.Models;
 using Serverless.Worker.Entities;
 using Serverless.Worker.Extensions;
 using Serverless.Worker.Models;
-using Serverless.Worker.Providers;
-using Microsoft.ServiceBus;
-using Microsoft.ServiceBus.Messaging;
-using Newtonsoft.Json;
 
 namespace Serverless.Worker.Managers
 {
@@ -42,7 +39,7 @@ namespace Serverless.Worker.Managers
 
             this.Deployments = new Dictionary<string, Deployment>();
 
-            this.AvailableMemory = ConfigurationProvider.AvailableMemory;
+            this.AvailableMemory = ServerlessConfiguration.AvailableMemory;
 
             this.ManagementTask = this.ManageExecutions(cancellationToken: this.CancellationTokenSource.Token);
         }
@@ -74,17 +71,17 @@ namespace Serverless.Worker.Managers
 
                     lock (this)
                     {
-                        this.AvailableMemory += ConfigurationProvider.MaximumFunctionMemory;
+                        this.AvailableMemory += ServerlessConfiguration.MaximumFunctionMemory;
                     }
                 }
 
-                while (this.AvailableMemory >= ConfigurationProvider.MaximumFunctionMemory)
+                while (this.AvailableMemory >= ServerlessConfiguration.MaximumFunctionMemory)
                 {
                     this.ExecutionTasks.Add(this.Execute(cancellationToken: cancellationToken));
 
                     lock (this)
                     {
-                        this.AvailableMemory -= ConfigurationProvider.MaximumFunctionMemory;
+                        this.AvailableMemory -= ServerlessConfiguration.MaximumFunctionMemory;
                     }
                 }
 
@@ -101,24 +98,20 @@ namespace Serverless.Worker.Managers
 
         public async Task Execute(CancellationToken cancellationToken)
         {
-            var executionQueueClient = await ServiceBusProvider
-                .GetQueueClient(path: ConfigurationProvider.ExecutionQueueName)
+            var functionMessage = await QueueProvider
+                .WaitForMessage(
+                    queueName: ServerlessConfiguration.ExecutionQueueName,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(continueOnCapturedContext: false);
-
-            var functionMessage = await executionQueueClient
-                .ReceiveAsync(serverWaitTime: TimeSpan.MaxValue)
-                .ConfigureAwait(continueOnCapturedContext: false);
-
-            var stopwatch = Stopwatch.StartNew();
 
             if (cancellationToken.IsCancellationRequested)
             {
                 return;
             }
-            
-            var function = await functionMessage
-                .ParseBody<Function>()
-                .ConfigureAwait(continueOnCapturedContext: false);
+
+            var stopwatch = Stopwatch.StartNew();
+
+            var function = functionMessage.FromJson<Function>();
 
             lock (this.Deployments)
             {
@@ -131,18 +124,9 @@ namespace Serverless.Worker.Managers
                 }
             }
 
-            BrokeredMessage executionRequestMessage = null;
-            try
-            {
-                var deploymentQueueClient = await ServiceBusProvider
-                    .GetQueueClient(path: function.DeploymentId)
-                    .ConfigureAwait(continueOnCapturedContext: false);
-
-                executionRequestMessage = await deploymentQueueClient
-                    .ReceiveAsync()
-                    .ConfigureAwait(continueOnCapturedContext: false);
-            }
-            catch (MessagingEntityNotFoundException) { }
+            var executionRequestMessage = await QueueProvider
+                .GetMessage(queueName: function.DeploymentId)
+                .ConfigureAwait(continueOnCapturedContext: false);
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -151,9 +135,7 @@ namespace Serverless.Worker.Managers
 
             if (executionRequestMessage != null)
             {
-                var executionRequest = await executionRequestMessage
-                    .ParseBody<ExecutionRequest>()
-                    .ConfigureAwait(continueOnCapturedContext: false);
+                var executionRequest = executionRequestMessage.FromJson<ExecutionRequest>();
 
                 var deployment = this.Deployments[function.DeploymentId];
 
@@ -177,19 +159,23 @@ namespace Serverless.Worker.Managers
                 var response = await this.HttpClient
                     .PostAsync<ExecutionResponse>(
                         requestUri: String.Format(
-                            format: ConfigurationProvider.ResponseTemplate,
+                            format: ServerlessConfiguration.ResponseTemplate,
                             arg0: executionRequest.ExecutionId),
                         content: executionResponse,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(continueOnCapturedContext: false);
 
-                await executionRequestMessage
-                    .CompleteAsync()
+                await QueueProvider
+                    .DeleteMessage(
+                        queueName: ServerlessConfiguration.ExecutionQueueName,
+                        message: executionRequestMessage)
                     .ConfigureAwait(continueOnCapturedContext: false);
             }
 
-            await functionMessage
-                .CompleteAsync()
+            await QueueProvider
+                .DeleteMessage(
+                    queueName: function.DeploymentId,
+                    message: functionMessage)
                 .ConfigureAwait(continueOnCapturedContext: false);
         }
     }

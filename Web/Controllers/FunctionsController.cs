@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web.Http;
+using Serverless.Common.Providers;
 using Serverless.Web.Entities;
 using Serverless.Web.Extensions;
 using Serverless.Web.Models;
@@ -39,8 +40,8 @@ namespace Serverless.Web.Controllers
                         .Delete(functionId: function.Id)
                         .ConfigureAwait(continueOnCapturedContext: false);
 
-                    await ExecutionProvider
-                        .DeleteQueue(function: function)
+                    await QueueProvider
+                        .DeleteQueue(queueName: function.DeploymentId)
                         .ConfigureAwait(continueOnCapturedContext: false);
                 }))
                 .ConfigureAwait(continueOnCapturedContext: false);

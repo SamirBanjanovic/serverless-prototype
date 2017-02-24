@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessWorker", "Worker\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessWeb", "Web\ServerlessWeb.csproj", "{58B4E0DD-17C4-4A16-9C76-1CBBCA4DC6AB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessCommon", "ServerlessCommon\ServerlessCommon.csproj", "{BC185A88-DA14-4219-9519-D7FC1C4CBC11}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerlessCommon", "Common\ServerlessCommon.csproj", "{BC185A88-DA14-4219-9519-D7FC1C4CBC11}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -162,7 +162,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ServerlessCommon\ServerlessCommon.csproj">
+    <ProjectReference Include="..\Common\ServerlessCommon.csproj">
       <Project>{bc185a88-da14-4219-9519-d7fc1c4cbc11}</Project>
       <Name>ServerlessCommon</Name>
     </ProjectReference>

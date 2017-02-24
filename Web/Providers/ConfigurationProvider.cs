@@ -2,13 +2,14 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Azure;
 using Microsoft.ServiceBus;
 using Microsoft.ServiceBus.Messaging;
+using Microsoft.ServiceBus.Messaging.Amqp;
+using Microsoft.ServiceBus.Messaging.Configuration;
 using Microsoft.WindowsAzure.Storage;
 
 namespace Serverless.Web.Providers
@@ -24,6 +25,20 @@ namespace Serverless.Web.Providers
         private static readonly ConcurrentDictionary<string, QueueClient> QueueClients = new ConcurrentDictionary<string, QueueClient>();
 
         private static readonly string ServiceBusConnectionString = CloudConfigurationManager.GetSetting(name: "ServiceBusConnectionString");
+
+        private static readonly string ServiceBusEndpoint = CloudConfigurationManager.GetSetting(name: "ServiceBusEndpoint");
+
+        private static readonly MessagingFactory MessagingFactory = MessagingFactory.Create(
+            address: ConfigurationProvider.ServiceBusEndpoint,
+            factorySettings: new MessagingFactorySettings
+            {
+                TransportType = TransportType.Amqp,
+                AmqpTransportSettings = new AmqpTransportSettings
+                {
+                    BatchFlushInterval = TimeSpan.Zero
+                },
+                TokenProvider = ConfigurationProvider.NamespaceManager.Settings.TokenProvider
+            });
 
         private static CloudStorageAccount ParseStorageAccount()
         {
@@ -51,8 +66,12 @@ namespace Serverless.Web.Providers
 
                 if (!queueExists)
                 {
-                    var queueDescription = new QueueDescription(path: path);
-
+                    var queueDescription = new QueueDescription(path: path)
+                    {
+                        EnableBatchedOperations = false,
+                        EnablePartitioning = true
+                    };
+                    
                     await ConfigurationProvider.NamespaceManager
                         .CreateQueueAsync(description: queueDescription)
                         .ConfigureAwait(continueOnCapturedContext: false);
@@ -66,9 +85,7 @@ namespace Serverless.Web.Providers
 
         private static QueueClient CreateQueueClient(string path)
         {
-            return QueueClient.CreateFromConnectionString(
-                connectionString: ConfigurationProvider.ServiceBusConnectionString,
-                path: path);
+            return ConfigurationProvider.MessagingFactory.CreateQueueClient(path: path);
         }
     }
 }

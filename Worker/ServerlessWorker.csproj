@@ -100,6 +100,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Models\ExecutionLog.cs" />
+    <Compile Include="Providers\ServiceBusProvider.cs" />
     <Compile Include="Serverless.cs" />
     <Compile Include="Entities\Deployment.cs" />
     <Compile Include="Entities\Container.cs" />

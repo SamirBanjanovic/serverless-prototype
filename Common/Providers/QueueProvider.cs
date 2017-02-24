@@ -11,20 +11,11 @@ namespace Serverless.Common.Providers
 {
     public static class QueueProvider
     {
-        private static readonly CloudStorageAccount StorageAccount = QueueProvider.GetStorageAccount();
-
         private static readonly ConcurrentDictionary<string, bool> Queues = new ConcurrentDictionary<string, bool>();
-
-        private static readonly ConcurrentDictionary<object, CloudQueueMessage> Messages = new ConcurrentDictionary<object, CloudQueueMessage>();
-
-        private static CloudStorageAccount GetStorageAccount()
-        {
-            return CloudStorageAccount.Parse(connectionString: ServerlessConfiguration.StorageConnectionString);
-        }
 
         public static async Task AddMessage<T>(string queueName, T message)
         {
-            var queue = QueueProvider.StorageAccount
+            var queue = ServerlessConfiguration.StorageAccount
                 .CreateCloudQueueClient()
                 .GetQueueReference(queueName: queueName);
 
@@ -44,7 +35,7 @@ namespace Serverless.Common.Providers
 
         public static async Task<CloudQueueMessage> GetMessage(string queueName)
         {
-            var queue = QueueProvider.StorageAccount
+            var queue = ServerlessConfiguration.StorageAccount
                 .CreateCloudQueueClient()
                 .GetQueueReference(queueName: queueName);
 
@@ -81,7 +72,7 @@ namespace Serverless.Common.Providers
 
         public static Task DeleteMessage(string queueName, CloudQueueMessage message)
         {
-            return QueueProvider.StorageAccount
+            return ServerlessConfiguration.StorageAccount
                 .CreateCloudQueueClient()
                 .GetQueueReference(queueName: queueName)
                 .DeleteMessageAsync(message: message);
@@ -89,7 +80,7 @@ namespace Serverless.Common.Providers
 
         public static Task DeleteQueue(string queueName)
         {
-            return QueueProvider.StorageAccount
+            return ServerlessConfiguration.StorageAccount
                 .CreateCloudQueueClient()
                 .GetQueueReference(queueName: queueName)
                 .DeleteIfExistsAsync();

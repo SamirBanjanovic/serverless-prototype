@@ -139,7 +139,7 @@ namespace Serverless.Worker.Managers
                     .ConfigureAwait(continueOnCapturedContext: false);
 
                 executionRequestMessage = await deploymentQueueClient
-                    .ReceiveAsync(serverWaitTime: TimeSpan.Zero)
+                    .ReceiveAsync()
                     .ConfigureAwait(continueOnCapturedContext: false);
             }
             catch (MessagingEntityNotFoundException) { }

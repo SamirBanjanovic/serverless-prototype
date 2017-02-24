@@ -146,6 +146,7 @@
     <Compile Include="Extensions\CloudTableExtensions.cs" />
     <Compile Include="Extensions\QueueClientExtensions.cs" />
     <Compile Include="Extensions\UriExtensions.cs" />
+    <Compile Include="Models\ExecutionLog.cs" />
     <Compile Include="Models\ExecutionRequest.cs" />
     <Compile Include="Models\ExecutionResponse.cs" />
     <Compile Include="Models\FunctionRequestModel.cs" />

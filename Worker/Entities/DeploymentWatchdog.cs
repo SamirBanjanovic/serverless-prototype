@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -60,6 +61,8 @@ namespace Serverless.Worker.Entities
                 }
                 catch (MessagingEntityNotFoundException) { }
 
+                var stopwatch = Stopwatch.StartNew();
+
                 if (executionRequestMessage == null)
                 {
                     this.Deployment.Delete();
@@ -86,6 +89,12 @@ namespace Serverless.Worker.Entities
                 {
                     return;
                 }
+
+                executionResponse.Logs = new ExecutionLog
+                {
+                    Name = "DeploymentWatchdog.Watch",
+                    Duration = stopwatch.ElapsedMilliseconds
+                };
 
                 var response = await this.HttpClient
                     .PostAsync<ExecutionResponse>(

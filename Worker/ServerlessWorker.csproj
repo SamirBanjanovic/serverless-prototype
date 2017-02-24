@@ -99,6 +99,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Models\ExecutionLog.cs" />
     <Compile Include="Serverless.cs" />
     <Compile Include="Entities\Deployment.cs" />
     <Compile Include="Entities\Container.cs" />

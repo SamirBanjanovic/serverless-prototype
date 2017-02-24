@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -169,6 +170,8 @@ namespace Serverless.Worker.Entities
 
         public async Task<ExecutionResponse> Execute(ExecutionRequest request, CancellationToken cancellationToken)
         {
+            var stopwatch = Stopwatch.StartNew();
+
             await this.InitializationTask.ConfigureAwait(continueOnCapturedContext: false);
 
             Container container = null;
@@ -218,6 +221,7 @@ namespace Serverless.Worker.Entities
                     return new DeploymentWatchdog(deployment: this);
                 });
 
+            response.Logs.
             return response;
         }
 

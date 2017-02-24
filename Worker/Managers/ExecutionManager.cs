@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -112,6 +113,8 @@ namespace Serverless.Worker.Managers
                 .ReceiveAsync(serverWaitTime: TimeSpan.MaxValue)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
+            var stopwatch = Stopwatch.StartNew();
+
             if (cancellationToken.IsCancellationRequested)
             {
                 return;
@@ -164,6 +167,12 @@ namespace Serverless.Worker.Managers
                 {
                     return;
                 }
+
+                executionResponse.Logs = new ExecutionLog
+                {
+                    Name = "ExecutionManager.Execute",
+                    Duration = stopwatch.ElapsedMilliseconds
+                };
 
                 var response = await this.HttpClient
                     .PostAsync<ExecutionResponse>(

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.WindowsAzure.Storage;
 using Serverless.Common.Configuration;
 using Serverless.Common.Extensions;
 using Serverless.Common.Providers;
@@ -38,62 +39,72 @@ namespace Serverless.Worker.Entities
 
             await this.WatchTask
                 .ConfigureAwait(continueOnCapturedContext: false);
-
-            await this.Deployment
-                .Delete()
-                .ConfigureAwait(continueOnCapturedContext: false);
         }
 
         private async Task Watch(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var executionRequestMessage = await QueueProvider
-                    .WaitForMessage(
-                        queueName: this.Deployment.Function.DeploymentId,
-                        cancellationToken: cancellationToken)
-                    .ConfigureAwait(continueOnCapturedContext: false);
-
-                if (cancellationToken.IsCancellationRequested)
+                try
                 {
-                    return;
+                    var executionRequestMessage = await QueueProvider
+                        .WaitForMessage(
+                            queueName: this.Deployment.Function.DeploymentId,
+                            cancellationToken: cancellationToken)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    var stopwatch = Stopwatch.StartNew();
+
+                    var executionRequest = executionRequestMessage.FromJson<ExecutionRequest>();
+
+                    var executionResponse = await this.Deployment
+                        .Execute(
+                            request: executionRequest,
+                            cancellationToken: cancellationToken)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    executionResponse.Logs = new ExecutionLog
+                    {
+                        Name = "DeploymentWatchdog.Watch",
+                        Duration = stopwatch.ElapsedMilliseconds
+                    };
+
+                    var response = await this.HttpClient
+                        .PostAsync<ExecutionResponse>(
+                            requestUri: String.Format(
+                                format: ServerlessConfiguration.ResponseTemplate,
+                                arg0: executionRequest.ExecutionId),
+                            content: executionResponse,
+                            cancellationToken: cancellationToken)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+
+                    await QueueProvider
+                        .DeleteMessage(
+                            queueName: this.Deployment.Function.DeploymentId,
+                            message: executionRequestMessage)
+                        .ConfigureAwait(continueOnCapturedContext: false);
                 }
-
-                var stopwatch = Stopwatch.StartNew();
-
-                var executionRequest = executionRequestMessage.FromJson<ExecutionRequest>();
-
-                var executionResponse = await this.Deployment
-                    .Execute(
-                        request: executionRequest,
-                        cancellationToken: cancellationToken)
-                    .ConfigureAwait(continueOnCapturedContext: false);
-
-                if (cancellationToken.IsCancellationRequested)
+                catch (StorageException exception)
                 {
-                    return;
+                    if (exception.RequestInformation.HttpStatusCode == 404)
+                    {
+                        this.Deployment.Delete();
+                    }
+                    else
+                    {
+                        throw;
+                    }
                 }
-
-                executionResponse.Logs = new ExecutionLog
-                {
-                    Name = "DeploymentWatchdog.Watch",
-                    Duration = stopwatch.ElapsedMilliseconds
-                };
-
-                var response = await this.HttpClient
-                    .PostAsync<ExecutionResponse>(
-                        requestUri: String.Format(
-                            format: ServerlessConfiguration.ResponseTemplate,
-                            arg0: executionRequest.ExecutionId),
-                        content: executionResponse,
-                        cancellationToken: cancellationToken)
-                    .ConfigureAwait(continueOnCapturedContext: false);
-
-                await QueueProvider
-                    .DeleteMessage(
-                        queueName: this.Deployment.Function.DeploymentId,
-                        message: executionRequestMessage)
-                    .ConfigureAwait(continueOnCapturedContext: false);
             }
         }
 

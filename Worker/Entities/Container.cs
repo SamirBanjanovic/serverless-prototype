@@ -47,16 +47,12 @@ namespace Serverless.Worker.Entities
         {
             this.LastExecutionTime = DateTime.UtcNow;
 
-            var stopwatch = Stopwatch.StartNew();
-
             var response = await Container.HttpClient
                 .PostAsync(
                     requestUri: this.Uri,
                     content: request.Input,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(continueOnCapturedContext: false);
-
-            stopwatch.Stop();
 
             if (cancellationToken.IsCancellationRequested)
             {

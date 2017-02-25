@@ -162,8 +162,6 @@ namespace Serverless.Worker.Entities
 
         public async Task<ExecutionResponse> Execute(ExecutionRequest request, CancellationToken cancellationToken)
         {
-            var stopwatch = Stopwatch.StartNew();
-
             await this.InitializationTask.ConfigureAwait(continueOnCapturedContext: false);
 
             Container container = null;

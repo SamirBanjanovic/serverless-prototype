@@ -27,15 +27,18 @@ namespace Serverless.Web.Controllers
 
             var request = new ExecutionRequest
             {
-                ExecutionId = Guid.NewGuid().ToString(),
+                Function = function.ToModel(),
                 Input = input
             };
 
             var response = await ExecutionProvider
-                .Execute(
-                    function: function,
-                    request: request)
+                .Execute(request: request)
                 .ConfigureAwait(continueOnCapturedContext: false);
+
+            if (response == null)
+            {
+                return this.Request.CreateResponse(statusCode: HttpStatusCode.ServiceUnavailable);
+            }
 
             response.Logs = new ExecutionLog
             {

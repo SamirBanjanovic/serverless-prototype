@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Net;
 using System.Web.Http;
+using Serverless.Worker.Providers;
 
-namespace Serverless.Web
+namespace Serverless.Worker
 {
     public class WebApiApplication : System.Web.HttpApplication
     {
@@ -13,6 +14,8 @@ namespace Serverless.Web
             ServicePointManager.DefaultConnectionLimit = int.MaxValue;
 
             GlobalConfiguration.Configure(WebApiConfig.Register);
+
+            MemoryProvider.SendReservations();
         }
     }
 }

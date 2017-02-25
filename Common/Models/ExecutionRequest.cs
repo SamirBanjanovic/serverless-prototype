@@ -5,7 +5,7 @@ namespace Serverless.Common.Models
 {
     public class ExecutionRequest
     {
-        public string ExecutionId { get; set; }
+        public FunctionModel Function { get; set; }
 
         public JToken Input { get; set; }
     }

@@ -2,7 +2,7 @@
 
 namespace Serverless.Web.Models
 {
-    public class FunctionRequestModel
+    public class FunctionUpload
     {
         public string DisplayName { get; set; }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -13,6 +14,8 @@ namespace Serverless.Web.Providers
 {
     public static class FunctionsProvider
     {
+        private static bool TableCreated = false;
+
         public static async Task<IEnumerable<Function>> List()
         {
             var functionsTable = await FunctionsProvider
@@ -107,13 +110,18 @@ namespace Serverless.Web.Providers
 
         private static async Task<CloudTable> GetFunctionsTable()
         {
-            var tableClient = ServerlessConfiguration.StorageAccount.CreateCloudTableClient();
+            var functionsTable = ServerlessConfiguration.StorageAccount
+                .CreateCloudTableClient()
+                .GetTableReference(tableName: "functions");
 
-            var functionsTable = tableClient.GetTableReference(tableName: "functions");
+            if (!FunctionsProvider.TableCreated)
+            {
+                await functionsTable
+                    .CreateIfNotExistsAsync()
+                    .ConfigureAwait(continueOnCapturedContext: false);
 
-            await functionsTable
-                .CreateIfNotExistsAsync()
-                .ConfigureAwait(continueOnCapturedContext: false);
+                FunctionsProvider.TableCreated = true;
+            }
 
             return functionsTable;
         }

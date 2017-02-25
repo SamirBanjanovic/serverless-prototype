@@ -14,18 +14,9 @@ namespace Serverless.Common.Providers
 
         public static async Task AddMessage<T>(string queueName, T message)
         {
-            var queue = ServerlessConfiguration.StorageAccount
-                .CreateCloudQueueClient()
-                .GetQueueReference(queueName: queueName);
-
-            if (!QueueProvider.Queues.ContainsKey(key: queueName))
-            {
-                await queue
-                    .CreateIfNotExistsAsync()
-                    .ConfigureAwait(continueOnCapturedContext: false);
-
-                QueueProvider.Queues[queueName] = true;
-            }
+            var queue = await QueueProvider
+                .GetQueue(queueName: queueName)
+                .ConfigureAwait(continueOnCapturedContext: false);
 
             await queue
                 .AddMessageAsync(message: new CloudQueueMessage(content: message.ToJson()))
@@ -34,6 +25,50 @@ namespace Serverless.Common.Providers
 
         public static async Task<CloudQueueMessage> GetMessage(string queueName)
         {
+            var queue = await QueueProvider
+                .GetQueue(queueName: queueName)
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            return await queue
+                .GetMessageAsync()
+                .ConfigureAwait(continueOnCapturedContext: false);
+        }
+
+        public static async Task SetMessageVisibilityTimeout(string queueName, CloudQueueMessage message, TimeSpan visibilityTimeout)
+        {
+            var queue = await QueueProvider
+                .GetQueue(queueName: queueName)
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            await queue
+                .UpdateMessageAsync(
+                    message: message,
+                    visibilityTimeout: visibilityTimeout,
+                    updateFields: MessageUpdateFields.Visibility)
+                .ConfigureAwait(continueOnCapturedContext: false);
+        }
+
+        public static async Task DeleteMessage(string queueName, CloudQueueMessage message)
+        {
+            var queue = await QueueProvider
+                .GetQueue(queueName: queueName)
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            await queue
+                .DeleteMessageAsync(message: message)
+                .ConfigureAwait(continueOnCapturedContext: false);
+        }
+
+        public static Task DeleteQueue(string queueName)
+        {
+            return ServerlessConfiguration.StorageAccount
+                .CreateCloudQueueClient()
+                .GetQueueReference(queueName: queueName)
+                .DeleteIfExistsAsync();
+        }
+
+        private static async Task<CloudQueue> GetQueue(string queueName)
+        {
             var queue = ServerlessConfiguration.StorageAccount
                 .CreateCloudQueueClient()
                 .GetQueueReference(queueName: queueName);
@@ -47,46 +82,7 @@ namespace Serverless.Common.Providers
                 QueueProvider.Queues[queueName] = true;
             }
 
-            return await queue
-                .GetMessageAsync()
-                .ConfigureAwait(continueOnCapturedContext: false);
-        }
-
-        public static async Task<CloudQueueMessage> WaitForMessage(string queueName, CancellationToken cancellationToken)
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var message = await QueueProvider
-                    .GetMessage(queueName: queueName)
-                    .ConfigureAwait(continueOnCapturedContext: false);
-
-                if (message != null)
-                {
-                    return message;
-                }
-
-                await Task
-                    .Delay(delay: TimeSpan.FromMilliseconds(50))
-                    .ConfigureAwait(continueOnCapturedContext: false);
-            }
-
-            return null;
-        }
-
-        public static Task DeleteMessage(string queueName, CloudQueueMessage message)
-        {
-            return ServerlessConfiguration.StorageAccount
-                .CreateCloudQueueClient()
-                .GetQueueReference(queueName: queueName)
-                .DeleteMessageAsync(message: message);
-        }
-
-        public static Task DeleteQueue(string queueName)
-        {
-            return ServerlessConfiguration.StorageAccount
-                .CreateCloudQueueClient()
-                .GetQueueReference(queueName: queueName)
-                .DeleteIfExistsAsync();
+            return queue;
         }
     }
 }

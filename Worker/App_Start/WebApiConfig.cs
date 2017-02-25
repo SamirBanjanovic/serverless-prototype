@@ -4,7 +4,7 @@ using System.Web.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
-namespace Serverless.Web
+namespace Serverless.Worker
 {
     public static class WebApiConfig
     {
@@ -18,15 +18,15 @@ namespace Serverless.Web
             config.MapHttpAttributeRoutes();
 
             config.Routes.MapHttpRoute(
-                name: "FunctionsCRUD",
-                routeTemplate: "functions/{functionId}",
-                defaults: new { controller = "Functions", functionId = RouteParameter.Optional }
+                name: "Containers",
+                routeTemplate: "containers/{containerName}",
+                defaults: new { controller = "Containers" }
             );
 
             config.Routes.MapHttpRoute(
-                name: "Invoke",
-                routeTemplate: "functions/{functionId}/invoke",
-                defaults: new { controller = "Invoke" }
+                name: "Execute",
+                routeTemplate: "containers/{containerName}/execute",
+                defaults: new { controller = "Execute" }
             );
         }
     }

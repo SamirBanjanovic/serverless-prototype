@@ -1,63 +1,58 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Serverless.Common.Configuration;
-using Serverless.Common.Models;
-using Serverless.Worker.Extensions;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Newtonsoft.Json.Linq;
+using Serverless.Common.Configuration;
+using Serverless.Common.Extensions;
+using Serverless.Common.Models;
+using Serverless.Worker.Models;
 
 namespace Serverless.Worker.Entities
 {
     public class Container
     {
-        private static HttpClient HttpClient { get; set; }
+        private static readonly HttpClient HttpClient = new HttpClient();
 
-        private static DockerClient DockerClient { get; set; }
+        private static readonly DockerClient DockerClient = Container.CreateDockerClient();
 
-        public string Id { get; private set; }
+        private static DockerClient CreateDockerClient()
+        {
+            var dockerUri = new Uri(ServerlessConfiguration.DockerUri);
+            return new DockerClientConfiguration(endpoint: dockerUri).CreateClient();
+        }
 
-        public DateTime LastExecutionTime { get; set; }
+        private string Id { get; set; }
+
+        private string Name { get; set; }
 
         private Uri Uri { get; set; }
 
-        static Container()
-        {
-            Container.HttpClient = new HttpClient();
+        public DateTime LastExecutionTime { get; private set; }
 
-            var dockerUri = new Uri(ServerlessConfiguration.DockerUri);
-            Container.DockerClient = new DockerClientConfiguration(endpoint: dockerUri).CreateClient();
-        }
-
-        public Container(string id, string ipAddress)
+        public Container(string id, string name, string ipAddress)
         {
             this.Id = id;
-            this.LastExecutionTime = DateTime.UtcNow;
+            this.Name = name;
             this.Uri = new Uri(string.Format(
                 format: ServerlessConfiguration.ContainerUriTemplate,
                 arg0: ipAddress));
+            this.LastExecutionTime = DateTime.UtcNow;
         }
 
-        public async Task<ExecutionResponse> Execute(ExecutionRequest request, CancellationToken cancellationToken)
+        public async Task<ExecutionResponse> Execute(ExecutionRequest request)
         {
             this.LastExecutionTime = DateTime.UtcNow;
 
             var response = await Container.HttpClient
                 .PostAsync(
                     requestUri: this.Uri,
-                    content: request.Input,
-                    cancellationToken: cancellationToken)
+                    content: request.Input)
                 .ConfigureAwait(continueOnCapturedContext: false);
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
 
             var output = await response.Content
                 .FromJson<JToken>()
@@ -69,59 +64,61 @@ namespace Serverless.Worker.Entities
             };
         }
 
-        public Task Delete()
+        public async Task Delete()
         {
-            return Container.DockerClient.Containers
-                .RemoveContainerAsync(
-                    id: this.Id,
-                    parameters: new ContainerRemoveParameters
-                    {
-                        Force = true
-                    });
+            // Keep an eye on this, it looks like a Docker Engine bug on remove.
+            try
+            {
+                await Container.DockerClient.Containers
+                    .RemoveContainerAsync(
+                        id: this.Id,
+                        parameters: new ContainerRemoveParameters
+                        {
+                            Force = true
+                        })
+                    .ConfigureAwait(continueOnCapturedContext: false);
+            }
+            catch (DockerApiException exception)
+            {
+                if (exception.Message.Contains("windowsfilter"))
+                {
+                    Console.WriteLine(exception.Message);
+                    Console.WriteLine(exception.StackTrace);
+                }
+                else
+                {
+                    throw;
+                }
+            }
         }
 
-        public static async Task<Container> Create(string deploymentId, int memorySize, CancellationToken cancellationToken)
+        public static async Task<Container> Create(string name, string functionId, int memorySize)
         {
-            var dockerUri = new Uri(ServerlessConfiguration.DockerUri);
-            var dockerClient = new DockerClientConfiguration(endpoint: dockerUri).CreateClient();
-
-            var parameters = new CreateContainerParameters
-            {
-                Image = "serverless-node",
-                HostConfig = new HostConfig
+            var createResponse = await Container.DockerClient.Containers
+                .CreateContainerAsync(parameters: new CreateContainerParameters
                 {
-                    Memory = memorySize,
-                    CPUShares = memorySize,
-                    Binds = new List<string>
+                    Image = "serverless-node",
+                    HostConfig = new HostConfig
                     {
-                        "C:/deployments/" + deploymentId + ":C:/function:ro"
+                        Memory = memorySize,
+                        CPUShares = memorySize,
+                        Binds = new List<string>
+                    {
+                        "C:/functions/" + functionId + ":C:/function:ro"
                     }
-                },
-                Volumes = new Dictionary<string, object>
-                {
-                    { "C:/function", new { } }
-                }
-            };
-
-            var createResponse = await dockerClient.Containers
-                .CreateContainerAsync(parameters: parameters)
+                    },
+                    Volumes = new Dictionary<string, object>
+                    {
+                        { "C:/function", new { } }
+                    }
+                })
                 .ConfigureAwait(continueOnCapturedContext: false);
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
 
             await Container.DockerClient.Containers
                 .StartContainerAsync(
                     id: createResponse.ID,
                     parameters: new ContainerStartParameters { })
                 .ConfigureAwait(continueOnCapturedContext: false);
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
 
             string startMessage = string.Empty;
             do
@@ -134,12 +131,12 @@ namespace Serverless.Worker.Entities
                             ShowStdout = true,
                             Tail = "1"
                         },
-                        cancellationToken: cancellationToken)
+                        cancellationToken: new CancellationToken())
                     .ConfigureAwait(continueOnCapturedContext: false);
 
                 startMessage = new StreamReader(stream: logStream).ReadToEnd();
             }
-            while (!startMessage.Contains("started") && !cancellationToken.IsCancellationRequested);
+            while (!startMessage.Contains("started"));
 
             var inspectResponse = await Container.DockerClient.Containers
                 .InspectContainerAsync(id: createResponse.ID)
@@ -147,6 +144,7 @@ namespace Serverless.Worker.Entities
 
             return new Container(
                 id: inspectResponse.ID,
+                name: name,
                 ipAddress: inspectResponse.NetworkSettings.Networks[ServerlessConfiguration.DockerNetworkName].IPAddress);
         }
     }

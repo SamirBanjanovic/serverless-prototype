@@ -1,25 +1,22 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-namespace Serverless.Worker.Extensions
+namespace Serverless.Common.Extensions
 {
     public static class HttpClientExtensions
     {
-        public static Task<HttpResponseMessage> PostAsync<T>(this HttpClient httpClient, string requestUri, T content, CancellationToken cancellationToken)
+        public static Task<HttpResponseMessage> PostAsync<T>(this HttpClient httpClient, string requestUri, T content)
         {
             return httpClient.PostAsync<T>(
                 requestUri: new Uri(requestUri),
-                content: content,
-                cancellationToken: cancellationToken);
+                content: content);
         }
 
-        public static async Task<HttpResponseMessage> PostAsync<T>(this HttpClient httpClient, Uri requestUri, T content, CancellationToken cancellationToken)
+        public static async Task<HttpResponseMessage> PostAsync<T>(this HttpClient httpClient, Uri requestUri, T content)
         {
             var stringContent = new StringContent(
                 content: JsonConvert.SerializeObject(value: content),
@@ -29,8 +26,7 @@ namespace Serverless.Worker.Extensions
             return await httpClient
                 .PostAsync(
                     requestUri: requestUri,
-                    content: stringContent,
-                    cancellationToken: cancellationToken)
+                    content: stringContent)
                 .ConfigureAwait(continueOnCapturedContext: false);
         }
     }

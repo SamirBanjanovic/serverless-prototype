@@ -7,8 +7,8 @@
     <ProjectGuid>{BC185A88-DA14-4219-9519-D7FC1C4CBC11}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ServerlessCommon</RootNamespace>
-    <AssemblyName>ServerlessCommon</AssemblyName>
+    <RootNamespace>Serverless.Common</RootNamespace>
+    <AssemblyName>Serverless.Common</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -70,11 +70,16 @@
   <ItemGroup>
     <Compile Include="Extensions\CloudQueueMessageExtensions.cs" />
     <Compile Include="Extensions\GenericExtensions.cs" />
+    <Compile Include="Extensions\HttpClientExtensions.cs" />
+    <Compile Include="Extensions\HttpContentExtensions.cs" />
+    <Compile Include="Models\ExecutionAvailability.cs" />
+    <Compile Include="Models\FunctionModel.cs" />
     <Compile Include="Models\ExecutionLog.cs" />
     <Compile Include="Models\ExecutionRequest.cs" />
     <Compile Include="Models\ExecutionResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Configuration\ConfigurationProvider.cs" />
+    <Compile Include="Providers\IPProvider.cs" />
     <Compile Include="Providers\QueueProvider.cs" />
   </ItemGroup>
   <ItemGroup />

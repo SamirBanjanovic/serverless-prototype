@@ -1,106 +1,97 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Diagnostics;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.WindowsAzure.Storage.Queue;
 using Serverless.Common.Configuration;
-using Serverless.Common.Providers;
+using Serverless.Common.Extensions;
 using Serverless.Common.Models;
-using Serverless.Web.Entities;
+using Serverless.Common.Providers;
 
 namespace Serverless.Web.Providers
 {
     public static class ExecutionProvider
     {
-        private static readonly ConcurrentDictionary<string, TaskCompletionSource<ExecutionResponse>> Responses = new ConcurrentDictionary<string, TaskCompletionSource<ExecutionResponse>>();
+        private static readonly HttpClient HttpClient = new HttpClient();
 
-        public static async Task<ExecutionResponse> Execute(Function function, ExecutionRequest request)
+        public static async Task<ExecutionResponse> Execute(ExecutionRequest request)
         {
-            ExecutionProvider.Responses[request.ExecutionId] = new TaskCompletionSource<ExecutionResponse>();
+            CloudQueueMessage queueMessage;
 
-            var stopwatch = Stopwatch.StartNew();
-
-            await QueueProvider
-                .AddMessage(
-                    queueName: function.DeploymentId,
-                    message: request)
-                .ConfigureAwait(continueOnCapturedContext: false);
-
-            var deploymentMessageLog = new ExecutionLog
+            do
             {
-                Name = "ExecutionProvider.Execute.DeploymentMessage",
-                Duration = stopwatch.ElapsedMilliseconds
-            };
+                queueMessage = await QueueProvider
+                    .GetMessage(queueName: request.Function.Id)
+                    .ConfigureAwait(continueOnCapturedContext: false);
 
-            var executionMessageTask = Task
-                .Delay(delay: TimeSpan.FromMilliseconds(100))
-                .ContinueWith(task => QueueProvider.AddMessage(
-                    queueName: ServerlessConfiguration.ExecutionQueueName,
-                    message: function.ToResponseModel()));
-
-            var responseTask = ExecutionProvider.Responses[request.ExecutionId].Task;
-
-            await Task
-                .WhenAny(executionMessageTask, responseTask)
-                .ConfigureAwait(continueOnCapturedContext: false);
-
-            ExecutionResponse response;
-            if (responseTask.IsCompleted)
-            {
-                var responseLog = new ExecutionLog
+                if (queueMessage != null)
                 {
-                    Name = "ExecutionProvider.Execute.AwaitResponse",
-                    Duration = stopwatch.ElapsedMilliseconds - deploymentMessageLog.Duration
-                };
+                    var httpResponse = await HttpClient
+                        .PostAsJsonAsync(
+                            requestUri: queueMessage.FromJson<ExecutionAvailability>().CallbackURI,
+                            value: request)
+                        .ConfigureAwait(continueOnCapturedContext: false);
 
-                response = responseTask.Result;
-                response.Logs = new ExecutionLog
-                {
-                        Name = "ExecutionProvider.Execute",
-                        Duration = stopwatch.ElapsedMilliseconds,
-                        SubLogs = new[]
-                        {
-                            deploymentMessageLog,
-                            responseLog,
-                            response.Logs
-                        }
-                };
-            }
-            else
-            {
-                var executionMessageLog = new ExecutionLog
-                {
-                    Name = "ExecutionProvider.Execute.ExecutionMessage",
-                    Duration = stopwatch.ElapsedMilliseconds - deploymentMessageLog.Duration
-                };
-
-                response = await responseTask.ConfigureAwait(continueOnCapturedContext: false);
-
-                var responseLog = new ExecutionLog
-                {
-                    Name = "ExecutionProvider.Execute.AwaitResponse",
-                    Duration = stopwatch.ElapsedMilliseconds - executionMessageLog.Duration
-                };
-
-                response.Logs = new ExecutionLog
-                {
-                    Name = "ExecutionProvider.Execute",
-                    Duration = stopwatch.ElapsedMilliseconds,
-                    SubLogs = new[]
+                    if (httpResponse.StatusCode == HttpStatusCode.OK)
                     {
-                        deploymentMessageLog,
-                        executionMessageLog,
-                        responseLog,
-                        response.Logs
+                        var response = await httpResponse.Content
+                            .FromJson<ExecutionResponse>()
+                            .ConfigureAwait(continueOnCapturedContext: false);
+
+                        await QueueProvider
+                            .SetMessageVisibilityTimeout(
+                                queueName: request.Function.Id,
+                                message: queueMessage,
+                                visibilityTimeout: TimeSpan.Zero)
+                            .ConfigureAwait(continueOnCapturedContext: false);
+
+                        return response;
                     }
-                };
+                    else if (httpResponse.StatusCode == HttpStatusCode.Gone)
+                    {
+                        await QueueProvider
+                            .DeleteMessage(
+                                queueName: request.Function.Id,
+                                message: queueMessage)
+                            .ConfigureAwait(continueOnCapturedContext: false);
+                    }
+                }
             }
+            while (queueMessage != null);
 
-            return response;
-        }
+            do
+            {
+                queueMessage = await QueueProvider
+                    .GetMessage(queueName: ServerlessConfiguration.ExecutionQueueName)
+                    .ConfigureAwait(continueOnCapturedContext: false);
 
-        public static void Respond(string executionId, ExecutionResponse response)
-        {
-            ExecutionProvider.Responses[executionId].TrySetResult(result: response);
+                if (queueMessage != null)
+                {
+                    var httpResponse = await HttpClient
+                        .PostAsJsonAsync(
+                            requestUri: queueMessage.FromJson<ExecutionAvailability>().CallbackURI,
+                            value: request)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+
+                    if (httpResponse.StatusCode == HttpStatusCode.OK)
+                    {
+                        var response = await httpResponse.Content
+                            .FromJson<ExecutionResponse>()
+                            .ConfigureAwait(continueOnCapturedContext: false);
+
+                        await QueueProvider
+                            .DeleteMessage(
+                                queueName: ServerlessConfiguration.ExecutionQueueName,
+                                message: queueMessage)
+                            .ConfigureAwait(continueOnCapturedContext: false);
+
+                        return response;
+                    }
+                }
+            }
+            while (queueMessage != null);
+
+            return null;
         }
     }
 }

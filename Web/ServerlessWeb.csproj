@@ -137,18 +137,16 @@
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\FunctionsController.cs" />
     <Compile Include="Controllers\InvokeController.cs" />
-    <Compile Include="Controllers\RespondController.cs" />
     <Compile Include="Entities\Function.cs" />
     <Compile Include="Extensions\CloudTableExtensions.cs" />
     <Compile Include="Extensions\UriExtensions.cs" />
-    <Compile Include="Models\FunctionRequestModel.cs" />
+    <Compile Include="Models\FunctionUpload.cs" />
     <Compile Include="Providers\BlobProvider.cs" />
     <Compile Include="Providers\ExecutionProvider.cs" />
     <Compile Include="Providers\FunctionsProvider.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
-    <Compile Include="Models\FunctionResponseModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

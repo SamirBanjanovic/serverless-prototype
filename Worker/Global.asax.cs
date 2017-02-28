@@ -15,7 +15,7 @@ namespace Serverless.Worker
 
             GlobalConfiguration.Configure(WebApiConfig.Register);
 
-            MemoryProvider.SendReservations();
+            MemoryProvider.SendReservations().Wait();
         }
     }
 }

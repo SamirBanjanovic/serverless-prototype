@@ -2,7 +2,9 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Serverless.Common.Async;
 using Serverless.Common.Configuration;
+using Serverless.Common.Providers;
 using Serverless.Worker.Entities;
 using Serverless.Worker.Models;
 
@@ -14,13 +16,17 @@ namespace Serverless.Worker.Providers
 
         private static readonly Dictionary<string, ContainerExecutionState> ExecutionStates = new Dictionary<string, ContainerExecutionState>();
 
-        private static readonly ConcurrentDictionary<string, Task> MonitorTasks = new ConcurrentDictionary<string, Task>();
+        private static readonly ConcurrentDictionary<string, Task> ExpirationTasks = new ConcurrentDictionary<string, Task>();
+
+        private static readonly ConcurrentDictionary<string, Task> QueueWatchTasks = new ConcurrentDictionary<string, Task>();
 
         private static readonly Dictionary<string, TaskCompletionSource<bool>> DeletionTasks = new Dictionary<string, TaskCompletionSource<bool>>();
 
+        private static readonly AsyncLock Lock = new AsyncLock();
+
         public static async Task<bool> CreateContainerIfNotExists(string containerName, string functionId, int memorySize)
         {
-            lock (ContainerProvider.ExecutionStates)
+            using (await ContainerProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 if (ContainerProvider.ExecutionStates.ContainsKey(containerName))
                 {
@@ -37,15 +43,20 @@ namespace Serverless.Worker.Providers
                     memorySize: memorySize)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
-            MemoryProvider.AdjustReservation(
-                containerName: containerName,
-                memorySize: memorySize);
+            await MemoryProvider
+                .AdjustReservation(
+                    containerName: containerName,
+                    memorySize: memorySize)
+                .ConfigureAwait(continueOnCapturedContext: false);
 
             ContainerProvider.Containers[containerName] = container;
 
-            ContainerProvider.MonitorTasks[containerName] = ContainerProvider.MonitorContainer(containerName: containerName);
+            ContainerProvider.ExpirationTasks[containerName] = ContainerProvider.ExpireContainer(containerName: containerName);
+            ContainerProvider.QueueWatchTasks[containerName] = ContainerProvider.WatchContainerQueue(
+                queueName: functionId,
+                containerName: containerName);
 
-            lock (ContainerProvider.ExecutionStates)
+            using (await ContainerProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 if (ContainerProvider.DeletionTasks.ContainsKey(containerName))
                 {
@@ -65,7 +76,7 @@ namespace Serverless.Worker.Providers
         {
             var tcs = new TaskCompletionSource<bool>();
 
-            lock (ContainerProvider.ExecutionStates)
+            using (await ContainerProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 if (ContainerProvider.ExecutionStates[containerName] == ContainerExecutionState.Ready)
                 {
@@ -89,33 +100,25 @@ namespace Serverless.Worker.Providers
                 .ConfigureAwait(continueOnCapturedContext: false);
         }
 
-        public static bool TryReserve(string containerName, out Container container)
+        public static async Task<Container> TryReserve(string containerName)
         {
-            var success = false;
-            lock (ContainerProvider.ExecutionStates)
+            using (await ContainerProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 if (ContainerProvider.ExecutionStates[containerName] == ContainerExecutionState.Ready)
                 {
                     ContainerProvider.ExecutionStates[containerName] = ContainerExecutionState.Busy;
-                    success = true;
+                    return ContainerProvider.Containers[containerName];
+                }
+                else
+                {
+                    return null;
                 }
             }
-
-            if (success)
-            {
-                container = ContainerProvider.Containers[containerName];
-            }
-            else
-            {
-                container = null;
-            }
-
-            return success;
         }
 
-        public static void ReleaseContainer(string containerName)
+        public static async Task ReleaseContainer(string containerName)
         {
-            lock (ContainerProvider.ExecutionStates)
+            using (await ContainerProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 if (ContainerProvider.DeletionTasks.ContainsKey(containerName))
                 {
@@ -129,7 +132,7 @@ namespace Serverless.Worker.Providers
             }
         }
 
-        private static async Task MonitorContainer(string containerName)
+        private static async Task ExpireContainer(string containerName)
         {
             while (true)
             {
@@ -139,7 +142,7 @@ namespace Serverless.Worker.Providers
                 if (timeSinceLastExecution >= expirationTimeSpan)
                 {
                     var delete = false;
-                    lock (ContainerProvider.ExecutionStates)
+                    using (await ContainerProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
                     {
                         if (ContainerProvider.ExecutionStates[containerName] == ContainerExecutionState.Ready)
                         {
@@ -168,6 +171,27 @@ namespace Serverless.Worker.Providers
             }
         }
 
+        private static async Task WatchContainerQueue(string queueName, string containerName)
+        {
+            while (true)
+            {
+                var exists = await QueueProvider
+                    .QueueExists(queueName: queueName)
+                    .ConfigureAwait(continueOnCapturedContext: false);
+
+                if (!exists)
+                {
+                    await ContainerProvider
+                        .DeleteContainerIfExists(containerName: containerName)
+                        .ConfigureAwait(continueOnCapturedContext: false);
+                }
+
+                await Task
+                    .Delay(delay: TimeSpan.FromSeconds(5))
+                    .ConfigureAwait(continueOnCapturedContext: false);
+            }
+        }
+
         private static async Task DeleteContainer(string containerName)
         {
             await ContainerProvider.Containers[containerName]
@@ -177,15 +201,20 @@ namespace Serverless.Worker.Providers
             Container expiredContainer;
             ContainerProvider.Containers.TryRemove(containerName, out expiredContainer);
 
-            Task thisMonitor;
-            ContainerProvider.MonitorTasks.TryRemove(containerName, out thisMonitor);
+            Task expirationTask;
+            ContainerProvider.ExpirationTasks.TryRemove(containerName, out expirationTask);
+
+            Task queueWatchTask;
+            ContainerProvider.QueueWatchTasks.TryRemove(containerName, out queueWatchTask);
 
             if (ContainerProvider.DeletionTasks.ContainsKey(containerName))
             {
                 ContainerProvider.DeletionTasks.Remove(containerName);
             }
 
-            MemoryProvider.ReclaimReservation(containerName: containerName);
+            await MemoryProvider
+                .ReclaimReservation(containerName: containerName)
+                .ConfigureAwait(continueOnCapturedContext: false);
         }
     }
 }

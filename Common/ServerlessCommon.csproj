@@ -68,13 +68,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Async\AsyncLock.cs" />
     <Compile Include="Extensions\CloudQueueMessageExtensions.cs" />
     <Compile Include="Extensions\GenericExtensions.cs" />
     <Compile Include="Extensions\HttpClientExtensions.cs" />
     <Compile Include="Extensions\HttpContentExtensions.cs" />
     <Compile Include="Models\ExecutionAvailability.cs" />
-    <Compile Include="Models\FunctionModel.cs" />
     <Compile Include="Models\ExecutionLog.cs" />
+    <Compile Include="Models\FunctionModel.cs" />
     <Compile Include="Models\ExecutionRequest.cs" />
     <Compile Include="Models\ExecutionResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

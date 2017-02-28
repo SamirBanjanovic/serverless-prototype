@@ -4,8 +4,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage.Blob;
+using Serverless.Common.Async;
 using Serverless.Common.Configuration;
-using Serverless.Common.Models;
 
 namespace Serverless.Worker.Providers
 {
@@ -13,13 +13,15 @@ namespace Serverless.Worker.Providers
     {
         private static readonly Dictionary<string, bool> Functions = new Dictionary<string, bool>();
 
-        public static async Task DownloadIfNotExists(string functionId, string blobUri)
+        private static readonly AsyncLock Lock = new AsyncLock();
+
+        public static async Task<bool> DownloadIfNotExists(string functionId, string blobUri)
         {
-            lock (CodeProvider.Functions)
+            using (await CodeProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 if (CodeProvider.Functions.ContainsKey(functionId))
                 {
-                    return;
+                    return false;
                 }
 
                 CodeProvider.Functions[functionId] = true;
@@ -45,7 +47,11 @@ namespace Serverless.Worker.Providers
                 ZipFile.ExtractToDirectory(
                     sourceArchiveFileName: codePath,
                     destinationDirectoryName: codeDirectory);
+
+                return true;
             }
+
+            return false;
         }
     }
 }

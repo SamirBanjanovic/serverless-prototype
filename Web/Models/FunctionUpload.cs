@@ -4,8 +4,6 @@ namespace Serverless.Web.Models
 {
     public class FunctionUpload
     {
-        public string DisplayName { get; set; }
-
         public int MemorySize { get; set; }
 
         public string ZipFile { get; set; }

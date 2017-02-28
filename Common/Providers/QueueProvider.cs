@@ -67,6 +67,14 @@ namespace Serverless.Common.Providers
                 .DeleteIfExistsAsync();
         }
 
+        public static Task<bool> QueueExists(string queueName)
+        {
+            return ServerlessConfiguration.StorageAccount
+                .CreateCloudQueueClient()
+                .GetQueueReference(queueName: queueName)
+                .ExistsAsync();
+        }
+
         private static async Task<CloudQueue> GetQueue(string queueName)
         {
             var queue = ServerlessConfiguration.StorageAccount

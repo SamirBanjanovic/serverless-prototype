@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Serverless.Common.Async;
 using Serverless.Common.Configuration;
 using Serverless.Common.Models;
 using Serverless.Common.Providers;
@@ -13,53 +14,57 @@ namespace Serverless.Worker.Providers
     {
         private static readonly Dictionary<string, int> Reservations = new Dictionary<string, int>();
 
+        private static readonly AsyncLock Lock = new AsyncLock();
+
         private static readonly ConcurrentDictionary<string, ConcurrentDictionary<Task, bool>> SendTasks = new ConcurrentDictionary<string, ConcurrentDictionary<Task, bool>>();
 
         private static int AvailableMemory = ServerlessConfiguration.AvailableMemory;
 
-        public static bool ReservationExists(string containerName)
+
+        public static async Task<bool> ReservationExists(string containerName)
         {
-            lock (MemoryProvider.Reservations)
+            using (await MemoryProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 return MemoryProvider.Reservations.ContainsKey(containerName);
             }
         }
 
-        public static bool TryReserve(int memorySize, out string containerName)
+        public static async Task<string> TryReserve(int memorySize)
         {
-            lock (MemoryProvider.Reservations)
+            using (await MemoryProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 if (MemoryProvider.AvailableMemory >= memorySize)
                 {
                     MemoryProvider.AvailableMemory -= memorySize;
 
-                    containerName = Guid.NewGuid().ToString();
+                    var containerName = Guid.NewGuid().ToString();
                     MemoryProvider.Reservations[containerName] = memorySize;
                     MemoryProvider.SendTasks[containerName] = new ConcurrentDictionary<Task, bool>();
-                    return true;
+                    return containerName;
                 }
                 else
                 {
-                    containerName = null;
-                    return false;
+                    return null;
                 }
             }
         }
 
-        public static void AdjustReservation(string containerName, int memorySize)
+        public static async Task AdjustReservation(string containerName, int memorySize)
         {
-            lock (MemoryProvider.Reservations)
+            using (await MemoryProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 MemoryProvider.AvailableMemory += MemoryProvider.Reservations[containerName] - memorySize;
                 MemoryProvider.Reservations[containerName] = memorySize;
             }
 
-            MemoryProvider.SendReservations();
+            await MemoryProvider
+                .SendReservations()
+                .ConfigureAwait(continueOnCapturedContext: false);
         }
 
-        public static void ReclaimReservation(string containerName)
+        public static async Task ReclaimReservation(string containerName)
         {
-            lock (MemoryProvider.Reservations)
+            using (await MemoryProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
             {
                 MemoryProvider.AvailableMemory += MemoryProvider.Reservations[containerName];
                 MemoryProvider.Reservations.Remove(containerName);
@@ -67,14 +72,24 @@ namespace Serverless.Worker.Providers
                 MemoryProvider.SendTasks.TryRemove(containerName, out sendTasks);
             }
 
-            MemoryProvider.SendReservations();
+            await MemoryProvider
+                .SendReservations()
+                .ConfigureAwait(continueOnCapturedContext: false);
         }
 
-        public static void SendReservations()
+        public static async Task SendReservations()
         {
-            string containerName;
-            while (MemoryProvider.TryReserve(ServerlessConfiguration.MaximumFunctionMemory, out containerName))
+            while (true)
             {
+                var containerName = await MemoryProvider
+                    .TryReserve(memorySize: ServerlessConfiguration.MaximumFunctionMemory)
+                    .ConfigureAwait(continueOnCapturedContext: false);
+
+                if (containerName == null)
+                {
+                    return;
+                }
+
                 MemoryProvider.SendReservation(
                     queueName: ServerlessConfiguration.ExecutionQueueName,
                     containerName: containerName);
@@ -89,8 +104,7 @@ namespace Serverless.Worker.Providers
                 {
                     CallbackURI = string.Format(
                         format: ServerlessConfiguration.ExecutionTemplate,
-                        arg0: ServerlessConfiguration.IPAddress,
-                        arg1: containerName)
+                        arg0: containerName)
                 });
 
             MemoryProvider.SendTasks[containerName][sendTask] = true;

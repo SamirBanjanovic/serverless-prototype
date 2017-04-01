@@ -17,6 +17,8 @@ namespace Serverless.Common.Configuration
         public const string DockerNetworkName = "nat";
         public const string CodeDirectoryTemplate = @"{0}:\functions";
 
+        public const string RedisConnectionString = "";
+
 #if DEBUG
         public static string ExecutionTemplate = "http://localhost:44027/containers/{0}/execute";
         public const string StorageConnectionString = "UseDevelopmentStorage=true";

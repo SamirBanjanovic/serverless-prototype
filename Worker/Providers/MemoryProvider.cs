@@ -90,15 +90,35 @@ namespace Serverless.Worker.Providers
                     return;
                 }
 
-                MemoryProvider.SendReservation(
+                MemoryProvider.SendColdReservation(
                     queueName: ServerlessConfiguration.ExecutionQueueName,
                     containerName: containerName);
             }
         }
 
-        public static void SendReservation(string queueName, string containerName)
+        public static void SendColdReservation(string queueName, string containerName)
         {
             var sendTask = QueueProvider.AddMessage(
+                queueName: queueName,
+                message: new ExecutionAvailability
+                {
+                    CallbackURI = string.Format(
+                        format: ServerlessConfiguration.ExecutionTemplate,
+                        arg0: containerName)
+                });
+
+            MemoryProvider.SendTasks[containerName][sendTask] = true;
+
+            foreach (var task in MemoryProvider.SendTasks[containerName].Keys.Where(task => task.IsCompleted))
+            {
+                bool boolean;
+                MemoryProvider.SendTasks[containerName].TryRemove(task, out boolean);
+            }
+        }
+
+        public static void SendWarmReservation(string queueName, string containerName)
+        {
+            var sendTask = CacheProvider.Enqueue(
                 queueName: queueName,
                 message: new ExecutionAvailability
                 {

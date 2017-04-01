@@ -22,12 +22,12 @@ namespace Serverless.Web.Providers
             var stopwatch = Stopwatch.StartNew();
             var logs = new List<ExecutionLog>();
 
-            CloudQueueMessage queueMessage;
+            ExecutionAvailability availability;
 
             do
             {
-                queueMessage = await QueueProvider
-                    .GetMessage(queueName: request.Function.Id)
+                availability = await CacheProvider
+                    .Dequeue<ExecutionAvailability>(queueName: request.Function.Id)
                     .ConfigureAwait(continueOnCapturedContext: false);
 
                 logs.Add(new ExecutionLog
@@ -36,11 +36,11 @@ namespace Serverless.Web.Providers
                     Duration = stopwatch.ElapsedMilliseconds - (logs.Count > 0 ? logs.Last().Duration : 0)
                 });
 
-                if (queueMessage != null)
+                if (availability != null)
                 {
                     var httpResponse = await HttpClient
                         .PostAsJsonAsync(
-                            requestUri: queueMessage.FromJson<ExecutionAvailability>().CallbackURI,
+                            requestUri: availability.CallbackURI,
                             value: request)
                         .ConfigureAwait(continueOnCapturedContext: false);
 
@@ -58,19 +58,6 @@ namespace Serverless.Web.Providers
 
                         logs.Add(response.Logs);
 
-                        await QueueProvider
-                            .SetMessageVisibilityTimeout(
-                                queueName: request.Function.Id,
-                                message: queueMessage,
-                                visibilityTimeout: TimeSpan.Zero)
-                            .ConfigureAwait(continueOnCapturedContext: false);
-
-                        logs.Add(new ExecutionLog
-                        {
-                            Name = "SetWarmVisibilityTimeout",
-                            Duration = stopwatch.ElapsedMilliseconds - logs.Last().Duration
-                        });
-
                         response.Logs = new ExecutionLog
                         {
                             Name = "ExecutionProvider.Warm",
@@ -80,23 +67,11 @@ namespace Serverless.Web.Providers
 
                         return response;
                     }
-                    else if (httpResponse.StatusCode == HttpStatusCode.Gone)
-                    {
-                        await QueueProvider
-                            .DeleteMessage(
-                                queueName: request.Function.Id,
-                                message: queueMessage)
-                            .ConfigureAwait(continueOnCapturedContext: false);
-
-                        logs.Add(new ExecutionLog
-                        {
-                            Name = "DeleteWarmMessage",
-                            Duration = stopwatch.ElapsedMilliseconds - logs.Last().Duration
-                        });
-                    }
                 }
             }
-            while (queueMessage != null);
+            while (availability != null);
+
+            CloudQueueMessage queueMessage;
 
             do
             {

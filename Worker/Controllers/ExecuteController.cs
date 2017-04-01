@@ -81,7 +81,7 @@ namespace Serverless.Worker.Controllers
                 .ReleaseContainer(containerName: containerName)
                 .ConfigureAwait(continueOnCapturedContext: false);
 
-            MemoryProvider.SendReservation(
+            MemoryProvider.SendWarmReservation(
                 queueName: request.Function.Id,
                 containerName: containerName);
 

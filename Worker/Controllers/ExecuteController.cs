@@ -24,7 +24,7 @@ namespace Serverless.Worker.Controllers
 
             if (!reservationExists)
             {
-                return this.Request.CreateResponse(statusCode: HttpStatusCode.Gone);
+                return this.Request.CreateResponse(statusCode: HttpStatusCode.NotFound);
             }
 
             var downloaded = await CodeProvider
@@ -64,7 +64,7 @@ namespace Serverless.Worker.Controllers
 
             if (container == null)
             {
-                return this.Request.CreateResponse(statusCode: HttpStatusCode.Gone);
+                return this.Request.CreateResponse(statusCode: HttpStatusCode.NotFound);
             }
 
             var response = await container

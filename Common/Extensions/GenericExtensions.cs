@@ -10,8 +10,13 @@ namespace Serverless.Common.Extensions
             return JsonConvert.SerializeObject(value: value);
         }
 
-        public static T FromJson<T>(this string value)
+        public static T FromJson<T>(this string value) where T : class
         {
+            if (value == null)
+            {
+                return null;
+            }
+
             return JsonConvert.DeserializeObject<T>(value: value);
         }
     }

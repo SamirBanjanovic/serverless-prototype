@@ -28,5 +28,12 @@ namespace Serverless.Common.Providers
 
             return message.ToString().FromJson<T>();
         }
+
+        public static Task<bool> QueueExists(string queueName)
+        {
+            return RedisConnection
+                .GetDatabase()
+                .KeyExistsAsync(key: queueName);
+        }
     }
 }

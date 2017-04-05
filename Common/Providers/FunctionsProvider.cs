@@ -5,12 +5,12 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Web.Http;
 using Serverless.Common.Configuration;
-using Serverless.Web.Entities;
-using Serverless.Web.Extensions;
+using Serverless.Common.Entities;
+using Serverless.Common.Extensions;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 
-namespace Serverless.Web.Providers
+namespace Serverless.Common.Providers
 {
     public static class FunctionsProvider
     {
@@ -30,6 +30,15 @@ namespace Serverless.Web.Providers
             return await functionsTable
                 .ExecuteQueryAsync(query: rangeQuery)
                 .ConfigureAwait(continueOnCapturedContext: false);
+        }
+
+        public static async Task<bool> Exists(string functionId)
+        {
+            var function = await FunctionsProvider
+                .Get(functionId: functionId)
+                .ConfigureAwait(continueOnCapturedContext: false);
+
+            return function != null;
         }
 
         public static async Task<Function> Get(string functionId)
@@ -90,7 +99,7 @@ namespace Serverless.Web.Providers
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             var deleteOperation = TableOperation.Delete(entity: Function.FromId(functionId: functionId));
-            
+
             try
             {
                 await functionsTable

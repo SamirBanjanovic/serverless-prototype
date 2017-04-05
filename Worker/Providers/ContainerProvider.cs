@@ -52,8 +52,8 @@ namespace Serverless.Worker.Providers
             ContainerProvider.Containers[containerName] = container;
 
             ContainerProvider.ExpirationTasks[containerName] = ContainerProvider.ExpireContainer(containerName: containerName);
-            ContainerProvider.QueueWatchTasks[containerName] = ContainerProvider.WatchContainerQueue(
-                queueName: functionId,
+            ContainerProvider.QueueWatchTasks[containerName] = ContainerProvider.WatchFunctionExistence(
+                functionId: functionId,
                 containerName: containerName);
 
             using (await ContainerProvider.Lock.WaitAsync().ConfigureAwait(continueOnCapturedContext: false))
@@ -171,12 +171,12 @@ namespace Serverless.Worker.Providers
             }
         }
 
-        private static async Task WatchContainerQueue(string queueName, string containerName)
+        private static async Task WatchFunctionExistence(string functionId, string containerName)
         {
             while (true)
             {
-                var exists = await QueueProvider
-                    .QueueExists(queueName: queueName)
+                var exists = await FunctionsProvider
+                    .Exists(functionId: functionId)
                     .ConfigureAwait(continueOnCapturedContext: false);
 
                 if (!exists)
@@ -187,7 +187,7 @@ namespace Serverless.Worker.Providers
                 }
 
                 await Task
-                    .Delay(delay: TimeSpan.FromSeconds(5))
+                    .Delay(delay: TimeSpan.FromSeconds(15))
                     .ConfigureAwait(continueOnCapturedContext: false);
             }
         }

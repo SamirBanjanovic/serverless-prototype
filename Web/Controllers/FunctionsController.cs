@@ -4,11 +4,10 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web.Http;
+using Serverless.Common.Entities;
 using Serverless.Common.Providers;
-using Serverless.Web.Entities;
 using Serverless.Web.Extensions;
 using Serverless.Web.Models;
-using Serverless.Web.Providers;
 
 namespace Serverless.Web.Controllers
 {
@@ -65,8 +64,8 @@ namespace Serverless.Web.Controllers
 
         public async Task<HttpResponseMessage> Post([FromBody]FunctionUpload upload)
         {
-            var function = await Function
-                .FromUpload(upload: upload)
+            var function = await upload
+                .ToFunction()
                 .ConfigureAwait(continueOnCapturedContext: false);
 
             await FunctionsProvider

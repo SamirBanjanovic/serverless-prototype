@@ -128,6 +128,20 @@ namespace Serverless.Web.Providers
 
                         return response;
                     }
+                    else if (httpResponse.StatusCode == HttpStatusCode.NotFound)
+                    {
+                        await QueueProvider
+                            .DeleteMessage(
+                                queueName: ServerlessConfiguration.ExecutionQueueName,
+                                message: queueMessage)
+                            .ConfigureAwait(continueOnCapturedContext: false);
+
+                        logs.Add(new ExecutionLog
+                        {
+                            Name = "DeleteColdMessage",
+                            Duration = stopwatch.ElapsedMilliseconds - logs.Last().Duration
+                        });
+                    }
                 }
             }
             while (queueMessage != null);
